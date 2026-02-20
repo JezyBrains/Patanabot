@@ -23,8 +23,12 @@ const DEFAULT_PROFILE = {
  */
 function ensureProfile() {
     const dataDir = join(__dirname, '..', 'data');
+    const imagesDir = join(dataDir, 'images');
     if (!existsSync(dataDir)) {
         mkdirSync(dataDir, { recursive: true });
+    }
+    if (!existsSync(imagesDir)) {
+        mkdirSync(imagesDir, { recursive: true });
     }
     if (!existsSync(profilePath)) {
         writeFileSync(profilePath, JSON.stringify(DEFAULT_PROFILE, null, 2), 'utf-8');
