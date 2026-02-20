@@ -7,6 +7,7 @@ import { generateResponse } from './ai.js';
 import { saveOrder, pauseBot, isBotActive, saveMissedOpportunity, getDailySummary } from './db.js';
 import { shopName } from './shop.js';
 import { updateInventoryFromExcel } from './inventory.js';
+import { updateInventoryFromText } from './admin.js';
 
 dotenv.config();
 
@@ -43,7 +44,7 @@ client.on('ready', () => {
     console.log('📦 Mode: Master Closer (Sales Psychology)');
     console.log('👤 Human Override: ENABLED');
     console.log('📊 Daily Reports: 20:00 EAT');
-    console.log('📋 Excel Inventory Upload: ENABLED');
+    console.log('📋 Inventory: Excel + Natural Language (STOO:/UPDATE:)');
     console.log('━'.repeat(50));
 });
 
@@ -89,35 +90,69 @@ client.on('message', async (message) => {
         // Ignore group messages
         if (message.from.includes('@g.us')) return;
 
-        // --- OWNER ADMIN: Excel Inventory Upload (checked FIRST) ---
+        // ============================================================
+        // OWNER ADMIN: Excel Upload + Natural Language Inventory
+        // (checked FIRST — owner is NEVER treated as a customer)
+        // ============================================================
         const isOwner = (message.from === OWNER_PHONE);
 
-        if (isOwner && message.hasMedia) {
-            const media = await message.downloadMedia();
+        if (isOwner) {
+            if (message.hasMedia) {
+                const media = await message.downloadMedia();
 
-            // Check if it's an Excel file
-            const isExcel =
-                (media.mimetype && (
-                    media.mimetype.includes('spreadsheetml') ||
-                    media.mimetype.includes('excel') ||
-                    media.mimetype.includes('vnd.ms-excel')
-                )) ||
-                (media.filename && media.filename.endsWith('.xlsx'));
+                // Check if it's an Excel file
+                const isExcel =
+                    (media.mimetype && (
+                        media.mimetype.includes('spreadsheetml') ||
+                        media.mimetype.includes('excel') ||
+                        media.mimetype.includes('vnd.ms-excel')
+                    )) ||
+                    (media.filename && media.filename.endsWith('.xlsx'));
 
-            if (isExcel) {
-                await message.reply('⏳ Boss, naipokea listi yako mpya ya bidhaa, naisoma sasa hivi...');
+                if (isExcel) {
+                    await message.reply('⏳ Boss, naipokea listi yako mpya ya bidhaa, naisoma sasa hivi...');
 
-                try {
-                    const count = updateInventoryFromExcel(media.data);
-                    await message.reply(`✅ TAYARI BOSS! Nimefanikiwa kusoma na kukariri bidhaa ${count} mpya. Bei zimesasishwa na nipo tayari kupiga kazi! 📦🔥`);
-                } catch (err) {
-                    console.error('❌ Excel parse error:', err.message);
-                    await message.reply(`❌ Samahani Boss, kuna shida kwenye kusoma Excel yako. Hakikisha ina column za: Bidhaa, Hali, Bei_Kawaida, Bei_Mwisho.\n\nError: ${err.message}`);
+                    try {
+                        const count = updateInventoryFromExcel(media.data);
+                        await message.reply(`✅ TAYARI BOSS! Nimefanikiwa kusoma na kukariri bidhaa ${count} mpya. Bei zimesasishwa na nipo tayari kupiga kazi! 📦🔥`);
+                    } catch (err) {
+                        console.error('❌ Excel parse error:', err.message);
+                        await message.reply(`❌ Samahani Boss, kuna shida kwenye kusoma Excel yako. Hakikisha ina column za: Bidhaa, Hali, Bei_Kawaida, Bei_Mwisho.\n\nError: ${err.message}`);
+                    }
                 }
+            } else {
+                const text = message.body.trim();
 
-                return; // CRITICAL: Don't send Excel to AI
+                if (text.toUpperCase().startsWith('STOO:') || text.toUpperCase().startsWith('UPDATE:')) {
+                    await message.reply('⏳ Boss, nasoma maelekezo yako. Nasasisha stoo na bei sasa hivi...');
+
+                    try {
+                        const newCount = await updateInventoryFromText(text);
+                        await message.reply(`✅ TAYARI BOSS! Stoo imesasishwa kikamilifu. Sasa nina bidhaa ${newCount} kichwani. Nipo tayari kuuza! 📦🔥`);
+                    } catch (error) {
+                        console.error('❌ Text inventory update error:', error.message);
+                        await message.reply('❌ Samahani Boss, mtandao umesumbua au sikuelewa vizuri maelekezo. Jaribu tena.');
+                    }
+                } else {
+                    // Owner texts normally without trigger word — show help
+                    await message.reply(
+                        '🫡 Habari Boss! Mimi ni PatanaBot.\n\n' +
+                        'Kama unataka kubadili stoo au bei kwa meseji, anza na neno *STOO:* au *UPDATE:*\n\n' +
+                        'Mfano:\n' +
+                        '_STOO: Ongeza TV nchi 32 mpya, bei 300K mwisho 280K_\n' +
+                        '_UPDATE: Shusha bei ya AirPods kwa 5K_\n' +
+                        '_STOO: Futa iPhone 13 kutoka stoo_\n\n' +
+                        'Au tuma Excel file yenye column: Bidhaa, Hali, Bei_Kawaida, Bei_Mwisho 📋'
+                    );
+                }
             }
+
+            return; // CRITICAL: Stop processing so the owner isn't treated as a customer!
         }
+
+        // ============================================================
+        // CUSTOMER MESSAGE HANDLING (below this point = customers only)
+        // ============================================================
 
         // Extract the real phone number
         const contact = await message.getContact();
@@ -149,7 +184,7 @@ client.on('message', async (message) => {
 
         // --- DEMO HOOK ---
         if (text.toUpperCase() === 'DEMO') {
-            const demoReply = `Habari Boss! 👋 Mimi ni PatanaBot Enterprise — Muuzaji wa AI anayefanya kazi 24/7.\n\n🧠 Ninajua kupatana bei (negotiate)\n📸 Ninapokea picha za bidhaa\n🎤 Ninaelewa voice notes\n📋 Mmiliki anaweza kutuma Excel kubadili bei\n💰 Ninafunga oda automatically\n\nTuigize: Tuma picha ya simu au uliza bei ya AirPods uone ninavyofanya biashara!`;
+            const demoReply = `Habari Boss! 👋 Mimi ni PatanaBot Enterprise — Muuzaji wa AI anayefanya kazi 24/7.\n\n🧠 Ninajua kupatana bei (negotiate)\n📸 Ninapokea picha za bidhaa\n🎤 Ninaelewa voice notes\n📋 Mmiliki anaweza kutuma Excel au kuandika "STOO:" kubadili bei\n💰 Ninafunga oda automatically\n\nTuigize: Tuma picha ya simu au uliza bei ya AirPods uone ninavyofanya biashara!`;
             await message.reply(demoReply);
             console.log(`🎯 [DEMO] → ${userPhone}`);
             return;
