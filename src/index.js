@@ -93,12 +93,20 @@ const ESCALATE_TAG_REGEX = /\[ESCALATE\]/;
 const OOS_TAG_REGEX = /\[OUT_OF_STOCK:\s*(.+?)\s*\]/;
 
 // ============================================================
-// HUMAN OVERRIDE: Owner replies → bot steps aside permanently
+// HUMAN OVERRIDE: Owner manually replies to a customer from the
+// shop's WhatsApp → bot steps aside for that customer.
+// Skips bot-generated replies and admin conversations.
 // ============================================================
 client.on('message_create', async (message) => {
     try {
         if (!message.fromMe) return;
         if (message.to.includes('@g.us')) return;
+
+        // Don't pause for messages sent TO the owner (admin/test convos)
+        if (message.to === OWNER_PHONE) return;
+
+        // Don't pause for empty/media-only messages
+        if (!message.body || message.body.trim().length === 0) return;
 
         const customerChatId = message.to;
         const customerPhone = customerChatId.replace('@c.us', '');
