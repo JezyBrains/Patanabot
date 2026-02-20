@@ -55,7 +55,7 @@ export async function generateResponse(userPhone, prompt, media = null) {
     try {
         // Build model with FRESH inventory on every call
         const model = genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.0-flash',
             systemInstruction: buildSystemInstruction(),
         });
 
