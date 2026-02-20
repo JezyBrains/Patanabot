@@ -13,7 +13,13 @@ import { updateInventoryFromText } from './admin.js';
 
 dotenv.config();
 
-const OWNER_PHONE = process.env.OWNER_PHONE || '';
+// Normalize OWNER_PHONE — strip '+' if present (WhatsApp uses 255xxx@c.us, not +255xxx@c.us)
+const OWNER_PHONE = (process.env.OWNER_PHONE || '').replace(/^\+/, '');
+console.log(`👤 Owner phone: ${OWNER_PHONE || '(not set)'}`);
+
+// Auto-resume all paused customers on boot (clear stale pauses from previous sessions)
+const resumed = resumeAllBots();
+if (resumed > 0) console.log(`▶️ Auto-resumed ${resumed} paused customer(s) from previous session`);
 
 // --- Clean up stale Chromium lock files from Docker volume ---
 function cleanStaleLocks(dir) {
