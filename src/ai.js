@@ -143,7 +143,16 @@ export async function generateResponse(userPhone, prompt, media = null) {
                     mimeType: media.mimetype,
                 },
             };
-            messageContent = [prompt || 'Elezea hii picha/sauti', mediaPart];
+            // Different prompts for audio vs images
+            let mediaPrompt = prompt;
+            if (!mediaPrompt) {
+                if (media.mimetype && media.mimetype.includes('audio')) {
+                    mediaPrompt = 'Mteja ametuma voice note. Sikiliza kwa makini alichosema na umjibu kulingana na swali au ombi lake. Kama anaomba bidhaa, mpe bei na maelezo kutoka inventory.';
+                } else {
+                    mediaPrompt = 'Mteja ametuma picha ya bidhaa anayoitaka. Tambua bidhaa ndani ya kichwa chako na umjibu moja kwa moja — usielezee picha.';
+                }
+            }
+            messageContent = [mediaPrompt, mediaPart];
         } else {
             messageContent = prompt;
         }
