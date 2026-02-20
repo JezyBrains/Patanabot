@@ -1,10 +1,11 @@
 import pkg from 'whatsapp-web.js';
-const { Client, LocalAuth } = pkg;
+const { Client, LocalAuth, MessageMedia } = pkg;
 import qrcode from 'qrcode-terminal';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
 import { existsSync, unlinkSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { generateResponse } from './ai.js';
 import {
     saveOrder, pauseBot, isBotActive, resumeBot, resumeAllBots,
@@ -12,7 +13,10 @@ import {
     getEscalationCount, incrementEscalation, resetEscalation,
     getCustomerRating, setCustomerRating, getCustomerProfile,
 } from './db.js';
-import { shopName, getInventoryList } from './shop.js';
+import { shopName, getInventoryList, deductStock, restoreStock, getItemById } from './shop.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import { updateInventoryFromExcel } from './inventory.js';
 import { updateInventoryFromText } from './admin.js';
 
@@ -90,10 +94,17 @@ client.on('disconnected', (reason) => { console.log('🔌 Disconnected:', reason
 
 // --- Tag Regex Patterns ---
 const ORDER_TAG_REGEX = /\[ORDER_CLOSED:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\]/;
+const PENDING_PAYMENT_TAG_REGEX = /\[PENDING_PAYMENT:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\]/;
+const RECEIPT_TAG_REGEX = /\[RECEIPT_UPLOADED\]/;
+const SEND_IMAGE_TAG_REGEX = /\[SEND_IMAGE:\s*([a-zA-Z0-9_-]+)\s*\]/;
 const ALERT_TAG_REGEX = /\[ALERT:\s*(.+?)\s*\]/;
 const OOS_TAG_REGEX = /\[OUT_OF_STOCK:\s*(.+?)\s*\]/;
 const CHECK_STOCK_TAG_REGEX = /\[CHECK_STOCK:\s*(.+?)\s*\]/;
 const TROLL_TAG_REGEX = /\[TROLL\]/;
+
+// --- Pending Payments: Awaiting M-Pesa receipts ---
+// phone → { itemId, price, location, timestamp }
+const pendingPayments = new Map();
 
 // --- Anti-Spam: Rate Limiter (per customer) ---
 const COOLDOWN_MS = 5000;
@@ -270,6 +281,58 @@ client.on('message', async (message) => {
                         );
                     } else {
                         await message.reply('❌ Mfano: _PROFILE: 255743726397_');
+                    }
+
+                    // --- Owner reply: THIBITISHA/KATAA for payment verification ---
+                } else if (pendingPayments.size > 0 && (upper === 'THIBITISHA' || upper === 'KATAA')) {
+                    let targetPhone = null;
+                    if (message.hasQuotedMsg) {
+                        try {
+                            const quoted = await message.getQuotedMessage();
+                            const phoneMatch = quoted.body.match(/\+(\d{12})/);
+                            if (phoneMatch) targetPhone = phoneMatch[1];
+                        } catch { }
+                    }
+                    if (!targetPhone) targetPhone = [...pendingPayments.keys()].pop();
+
+                    const pending = pendingPayments.get(targetPhone);
+                    if (!pending) {
+                        await message.reply('❌ Hakuna malipo yanayosubiri.');
+                        return;
+                    }
+
+                    if (upper === 'THIBITISHA') {
+                        pendingPayments.delete(targetPhone);
+                        const item = getItemById(pending.itemId);
+                        const itemName = item ? item.item : pending.itemId;
+                        saveOrder(targetPhone, itemName, pending.price, pending.location);
+
+                        // Boost customer rating
+                        const currentRating = getCustomerRating(targetPhone);
+                        if (currentRating < 5) setCustomerRating(targetPhone, Math.min(5, currentRating + 1));
+
+                        // Confirm to customer + upsell
+                        const confirmMsg = await generateResponse(
+                            targetPhone,
+                            `🔑 MAELEKEZO YA BOSS: Malipo ya "${itemName}" yamethibitishwa! Mwambie mteja "Asante boss, malipo yameingia! Mzigo wako utatoka leo." Kisha pendekeza bidhaa nyingine inayoendana na "${itemName}" kama upsell.`
+                        );
+                        let clean = confirmMsg.replace(PENDING_PAYMENT_TAG_REGEX, '').replace(ALERT_TAG_REGEX, '').trim();
+                        await client.sendMessage(`${targetPhone}@c.us`, clean);
+                        await message.reply(`✅ Order imefungwa! ${targetPhone} — "${itemName}" @ TZS ${pending.price}`);
+                        console.log(`✅ [ORDER CLOSED] ${itemName} @ TZS ${pending.price} → ${pending.location}`);
+                    } else {
+                        // KATAA — payment rejected, restore stock
+                        restoreStock(pending.itemId);
+                        pendingPayments.delete(targetPhone);
+
+                        const rejectMsg = await generateResponse(
+                            targetPhone,
+                            `🔑 MAELEKEZO YA BOSS: Malipo ya mteja HAYAKUINGIA. Mwambie kwa upole: "Boss, malipo bado hayajaingia. Jaribu tena au tuma screenshot mpya." Usimfukuze — mshike kwa upole.`
+                        );
+                        let clean = rejectMsg.replace(PENDING_PAYMENT_TAG_REGEX, '').replace(ALERT_TAG_REGEX, '').trim();
+                        await client.sendMessage(`${targetPhone}@c.us`, clean);
+                        await message.reply(`❌ Malipo ya ${targetPhone} yamekataliwa. Stock imerejeshwa.`);
+                        console.log(`❌ [PAYMENT REJECTED] ${targetPhone} — stock restored`);
                     }
 
                     // --- Owner reply: NDIYO/HAPANA for stock check ---
@@ -487,18 +550,92 @@ client.on('message', async (message) => {
             return;
         }
 
-        // --- ORDER CLOSED Interceptor ---
+        // --- PENDING PAYMENT Interceptor (replaces ORDER_CLOSED) ---
+        const pendingMatch = aiResponse.match(PENDING_PAYMENT_TAG_REGEX);
+        if (pendingMatch) {
+            const [fullTag, itemId, price, location] = pendingMatch;
+            aiResponse = aiResponse.replace(fullTag, '').trim();
+
+            // Deduct stock immediately
+            const deducted = deductStock(itemId.trim());
+            if (!deducted) {
+                console.log(`❌ [STOCK FAIL] ${itemId} — out of stock, can't reserve`);
+            }
+
+            // Store pending payment
+            pendingPayments.set(userPhone, {
+                itemId: itemId.trim(),
+                price: price.trim(),
+                location: location.trim(),
+                timestamp: Date.now(),
+            });
+
+            // Alert owner
+            if (OWNER_PHONE) {
+                const item = getItemById(itemId.trim());
+                const itemName = item ? item.item : itemId.trim();
+                const profile2 = getCustomerProfile(userPhone);
+                await client.sendMessage(
+                    OWNER_PHONE,
+                    `💰 *PENDING PAYMENT:*\n+${userPhone} (${profile2.label})\nBidhaa: ${itemName}\nBei: TZS ${price.trim()}\nLocation: ${location.trim()}\n\n_Mteja anatuma muamala. Akituma screenshot, nitakuuliza THIBITISHA au KATAA._`
+                );
+            }
+
+            console.log(`💰 [PENDING] ${itemId} @ TZS ${price} → ${location} (stock deducted)`);
+        }
+
+        // --- Backward compat: ORDER_CLOSED (if AI still uses old tag) ---
         const orderMatch = aiResponse.match(ORDER_TAG_REGEX);
         if (orderMatch) {
             const [fullTag, item, price, location] = orderMatch;
             saveOrder(userPhone, item.trim(), price.trim(), location.trim());
             aiResponse = aiResponse.replace(fullTag, '').trim();
-
             const currentRating = getCustomerRating(userPhone);
             if (currentRating < 5) setCustomerRating(userPhone, Math.min(5, currentRating + 1));
             resetEscalation(userPhone);
-
             console.log(`✅ [ORDER CLOSED] ${item} @ ${price} → ${location}`);
+        }
+
+        // --- RECEIPT UPLOADED Interceptor ---
+        const receiptMatch = aiResponse.match(RECEIPT_TAG_REGEX);
+        if (receiptMatch) {
+            aiResponse = aiResponse.replace(RECEIPT_TAG_REGEX, '').trim();
+
+            const pending = pendingPayments.get(userPhone);
+            if (pending && OWNER_PHONE) {
+                const item = getItemById(pending.itemId);
+                const itemName = item ? item.item : pending.itemId;
+                const profile2 = getCustomerProfile(userPhone);
+                await client.sendMessage(
+                    OWNER_PHONE,
+                    `🧾 *RECEIPT UPLOADED:*\n+${userPhone} (${profile2.label})\nBidhaa: ${itemName}\nBei: TZS ${pending.price}\n\n_Angalia kama hela imeingia. Reply:_\n*THIBITISHA* = Malipo OK ✅\n*KATAA* = Hayajaingia ❌`
+                );
+                console.log(`🧾 [RECEIPT] ${userPhone} sent receipt for ${itemName}`);
+            }
+        }
+
+        // --- SEND IMAGE Interceptor ---
+        const imgMatch = aiResponse.match(SEND_IMAGE_TAG_REGEX);
+        if (imgMatch) {
+            const [fullTag, itemId] = imgMatch;
+            aiResponse = aiResponse.replace(SEND_IMAGE_TAG_REGEX, '').trim();
+
+            const item = getItemById(itemId);
+            if (item && item.image_file) {
+                const imagePath = join(__dirname, '..', 'data', 'images', item.image_file);
+                if (existsSync(imagePath)) {
+                    // Send text first, then image
+                    if (aiResponse.length > 0) {
+                        await message.reply(aiResponse);
+                    }
+                    const media2 = MessageMedia.fromFilePath(imagePath);
+                    await client.sendMessage(message.from, media2);
+                    console.log(`🖼️ [SEND IMAGE] ${item.image_file} → ${userPhone}`);
+                    return;
+                } else {
+                    console.log(`⚠️ [IMAGE MISSING] ${item.image_file} not found`);
+                }
+            }
         }
 
         // --- OUT OF STOCK Interceptor ---

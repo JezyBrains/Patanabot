@@ -50,10 +50,15 @@ export function getShopContext() {
     context += `${'─'.repeat(50)}\n`;
 
     for (const item of profile.inventory) {
-        context += `• ${item.item}\n`;
+        const qty = item.stock_qty ?? '?';
+        const status = qty === 0 ? ' ❌ SOLD OUT' : '';
+        context += `• [ID: ${item.id}] ${item.item}${status}\n`;
         context += `  Hali: ${item.condition}\n`;
         context += `  Bei ya Kawaida: TZS ${item.public_price.toLocaleString()}\n`;
-        context += `  🔒 Floor Price (SIRI!): TZS ${item.secret_floor_price.toLocaleString()}\n\n`;
+        context += `  🔒 Floor Price (SIRI!): TZS ${item.secret_floor_price.toLocaleString()}\n`;
+        context += `  📦 Stock: ${qty} pcs\n`;
+        if (item.image_file) context += `  🖼️ Picha: ${item.id}\n`;
+        context += `\n`;
     }
 
     return context;
@@ -94,7 +99,9 @@ export function getInventoryList() {
     for (const [cat, catItems] of Object.entries(groups)) {
         list += `📂 *${cat}*\n`;
         catItems.forEach(item => {
-            list += `  ${n}. ${item.item} — TZS ${item.public_price.toLocaleString()}\n`;
+            const qty = item.stock_qty ?? '?';
+            const oos = qty === 0 ? ' ❌' : '';
+            list += `  ${n}. ${item.item} — TZS ${item.public_price.toLocaleString()} (${qty} pcs)${oos}\n`;
             n++;
         });
         list += `\n`;
@@ -106,4 +113,38 @@ export function getInventoryList() {
     list += `_Kubadili bei:_ update: AirPods bei mpya 60K`;
 
     return list;
+}
+
+/**
+ * Get an item by its ID
+ */
+export function getItemById(itemId) {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    return profile.inventory.find(i => i.id === itemId) || null;
+}
+
+/**
+ * Deduct stock by 1. Returns true if successful, false if out of stock.
+ */
+export function deductStock(itemId) {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const item = profile.inventory.find(i => i.id === itemId);
+    if (!item || (item.stock_qty !== undefined && item.stock_qty <= 0)) return false;
+    if (item.stock_qty !== undefined) item.stock_qty -= 1;
+    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    console.log(`📦 [STOCK] ${item.item}: ${item.stock_qty} remaining`);
+    return true;
+}
+
+/**
+ * Restore stock by 1 (failed payment / cancelled order).
+ */
+export function restoreStock(itemId) {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const item = profile.inventory.find(i => i.id === itemId);
+    if (!item) return false;
+    if (item.stock_qty !== undefined) item.stock_qty += 1;
+    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    console.log(`📦 [STOCK RESTORED] ${item.item}: ${item.stock_qty} now`);
+    return true;
 }

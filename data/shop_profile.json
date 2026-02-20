@@ -4,298 +4,424 @@
     "delivery_policy": "Dar es Salaam: TZS 5,000 (Bodaboda, siku hiyo hiyo). Mikoani: Tunatuma kwa basi, gharama kulingana na eneo.",
     "inventory": [
         {
+            "id": "samsung_s24",
             "category": "SIMU",
             "item": "Samsung Galaxy S24",
             "condition": "Brand New, 256GB, Black",
             "public_price": 1400000,
-            "secret_floor_price": 1250000
+            "secret_floor_price": 1250000,
+            "stock_qty": 3,
+            "image_file": "samsung_s24.jpg"
         },
         {
+            "id": "samsung_s23",
             "category": "SIMU",
             "item": "Samsung Galaxy S23",
             "condition": "Brand New, 512GB, Sealed",
             "public_price": 1250000,
-            "secret_floor_price": 1100000
+            "secret_floor_price": 1100000,
+            "stock_qty": 2,
+            "image_file": "samsung_s23.jpg"
         },
         {
+            "id": "samsung_zflip4",
             "category": "SIMU",
             "item": "Samsung Galaxy Z Flip4",
             "condition": "Brand New, 128GB, Black",
             "public_price": 800000,
-            "secret_floor_price": 700000
+            "secret_floor_price": 700000,
+            "stock_qty": 1,
+            "image_file": ""
         },
         {
+            "id": "samsung_s21ultra",
             "category": "SIMU",
             "item": "Samsung Galaxy S21 Ultra 5G",
             "condition": "Brand New, 128GB, Sealed",
             "public_price": 750000,
-            "secret_floor_price": 650000
+            "secret_floor_price": 650000,
+            "stock_qty": 2,
+            "image_file": ""
         },
         {
+            "id": "samsung_a54",
             "category": "SIMU",
             "item": "Samsung Galaxy A54",
             "condition": "Brand New, 128GB, Sealed",
             "public_price": 550000,
-            "secret_floor_price": 480000
+            "secret_floor_price": 480000,
+            "stock_qty": 5,
+            "image_file": ""
         },
         {
+            "id": "iphone15",
             "category": "SIMU",
             "item": "Apple iPhone 15",
             "condition": "Brand New, 256GB, Sealed",
             "public_price": 2000000,
-            "secret_floor_price": 1800000
+            "secret_floor_price": 1800000,
+            "stock_qty": 2,
+            "image_file": ""
         },
         {
+            "id": "iphone14pro",
             "category": "SIMU",
             "item": "Apple iPhone 14 Pro",
             "condition": "Brand New, 128GB, Rose Gold",
             "public_price": 1700000,
-            "secret_floor_price": 1500000
+            "secret_floor_price": 1500000,
+            "stock_qty": 1,
+            "image_file": ""
         },
         {
+            "id": "iphone14",
             "category": "SIMU",
             "item": "Apple iPhone 14",
             "condition": "Brand New, 128GB, Sealed",
             "public_price": 1350000,
-            "secret_floor_price": 1200000
+            "secret_floor_price": 1200000,
+            "stock_qty": 3,
+            "image_file": ""
         },
         {
+            "id": "iphone13promax",
             "category": "SIMU",
             "item": "Apple iPhone 13 Pro Max",
             "condition": "Brand New, 256GB, Sealed",
             "public_price": 1650000,
-            "secret_floor_price": 1450000
+            "secret_floor_price": 1450000,
+            "stock_qty": 2,
+            "image_file": ""
         },
         {
+            "id": "iphone11",
             "category": "SIMU",
             "item": "Apple iPhone 11",
             "condition": "Used, 64GB, Green",
             "public_price": 350000,
-            "secret_floor_price": 300000
+            "secret_floor_price": 300000,
+            "stock_qty": 1,
+            "image_file": ""
         },
         {
+            "id": "pixel9",
             "category": "SIMU",
             "item": "Google Pixel 9",
             "condition": "Brand New, 128GB, Sealed",
             "public_price": 1700000,
-            "secret_floor_price": 1500000
+            "secret_floor_price": 1500000,
+            "stock_qty": 2,
+            "image_file": ""
         },
         {
+            "id": "pixel9pro",
             "category": "SIMU",
             "item": "Google Pixel 9 Pro",
             "condition": "Refurbished A++, 128GB, Black",
             "public_price": 2150000,
-            "secret_floor_price": 1900000
+            "secret_floor_price": 1900000,
+            "stock_qty": 1,
+            "image_file": ""
         },
         {
+            "id": "nokia235",
             "category": "SIMU",
             "item": "Nokia 235 4G",
             "condition": "Brand New, Sealed",
             "public_price": 200000,
-            "secret_floor_price": 170000
+            "secret_floor_price": 170000,
+            "stock_qty": 10,
+            "image_file": ""
         },
         {
+            "id": "tecno_spark20",
             "category": "SIMU",
             "item": "Tecno Spark 20 Pro+",
             "condition": "Brand New, 256GB, Sealed",
             "public_price": 380000,
-            "secret_floor_price": 320000
+            "secret_floor_price": 320000,
+            "stock_qty": 4,
+            "image_file": ""
         },
         {
+            "id": "tab_a11",
             "category": "TABLET",
             "item": "Samsung Galaxy Tab A11",
             "condition": "Brand New, 64GB, 8GB RAM",
             "public_price": 470000,
-            "secret_floor_price": 400000
+            "secret_floor_price": 400000,
+            "stock_qty": 3,
+            "image_file": ""
         },
         {
+            "id": "tab_s10ultra",
             "category": "TABLET",
             "item": "Samsung Galaxy Tab S10 Ultra",
             "condition": "Brand New, 512GB, 5G",
             "public_price": 3150000,
-            "secret_floor_price": 2800000
+            "secret_floor_price": 2800000,
+            "stock_qty": 1,
+            "image_file": ""
         },
         {
+            "id": "modio_m39",
             "category": "TABLET",
             "item": "Modio M39 Tablet",
             "condition": "Brand New, 512GB, Simcard, Android",
             "public_price": 300000,
-            "secret_floor_price": 250000
+            "secret_floor_price": 250000,
+            "stock_qty": 5,
+            "image_file": ""
         },
         {
+            "id": "modio_m128",
             "category": "TABLET",
             "item": "Modio M128 Tablet",
             "condition": "Brand New, 256GB, Simcard",
             "public_price": 270000,
-            "secret_floor_price": 220000
+            "secret_floor_price": 220000,
+            "stock_qty": 4,
+            "image_file": ""
         },
         {
+            "id": "atouch_x19",
             "category": "TABLET",
             "item": "Atouch X19 Pro Tablet",
             "condition": "Brand New, 256GB, 10 inch, 10000mAh",
             "public_price": 320000,
-            "secret_floor_price": 270000
+            "secret_floor_price": 270000,
+            "stock_qty": 3,
+            "image_file": ""
         },
         {
+            "id": "ipad10",
             "category": "TABLET",
             "item": "Apple iPad 10th Gen",
             "condition": "Brand New, 256GB, WiFi Only",
             "public_price": 1300000,
-            "secret_floor_price": 1150000
+            "secret_floor_price": 1150000,
+            "stock_qty": 1,
+            "image_file": ""
         },
         {
+            "id": "airpods_pro2",
             "category": "EARPHONES",
             "item": "AirPods Pro 2nd Gen",
             "condition": "Brand New, Sealed",
             "public_price": 70000,
-            "secret_floor_price": 50000
+            "secret_floor_price": 50000,
+            "stock_qty": 8,
+            "image_file": ""
         },
         {
+            "id": "airpods_max",
             "category": "EARPHONES",
             "item": "AirPods Max",
             "condition": "Brand New, Multiple Colors",
             "public_price": 120000,
-            "secret_floor_price": 95000
+            "secret_floor_price": 95000,
+            "stock_qty": 3,
+            "image_file": ""
         },
         {
+            "id": "galaxy_buds",
             "category": "EARPHONES",
             "item": "Samsung Galaxy Buds Pro",
             "condition": "Brand New, Sealed",
             "public_price": 50000,
-            "secret_floor_price": 35000
+            "secret_floor_price": 35000,
+            "stock_qty": 6,
+            "image_file": ""
         },
         {
+            "id": "jbl_s25",
             "category": "EARPHONES",
             "item": "JBL Tune S25 Buds",
             "condition": "Brand New, Wireless",
             "public_price": 50000,
-            "secret_floor_price": 35000
+            "secret_floor_price": 35000,
+            "stock_qty": 5,
+            "image_file": ""
         },
         {
+            "id": "jbl_770nc",
             "category": "EARPHONES",
             "item": "JBL Live 770NC Headphones",
             "condition": "Brand New, Over-ear, Noise Cancelling",
             "public_price": 400000,
-            "secret_floor_price": 350000
+            "secret_floor_price": 350000,
+            "stock_qty": 2,
+            "image_file": ""
         },
         {
+            "id": "oraimo_buds",
             "category": "EARPHONES",
             "item": "Oraimo Earbuds",
             "condition": "Brand New, Original",
             "public_price": 35000,
-            "secret_floor_price": 25000
+            "secret_floor_price": 25000,
+            "stock_qty": 10,
+            "image_file": ""
         },
         {
+            "id": "sony_wf1000",
             "category": "EARPHONES",
             "item": "Sony WF-1000 Earbuds",
             "condition": "Brand New, Long Battery Life",
             "public_price": 60000,
-            "secret_floor_price": 45000
+            "secret_floor_price": 45000,
+            "stock_qty": 3,
+            "image_file": ""
         },
         {
+            "id": "anker_r60i",
             "category": "EARPHONES",
             "item": "Anker Soundcore R60i NC",
             "condition": "Brand New, Noise Cancelling, Wireless",
             "public_price": 180000,
-            "secret_floor_price": 150000
+            "secret_floor_price": 150000,
+            "stock_qty": 2,
+            "image_file": ""
         },
         {
+            "id": "oraimo_pb10",
             "category": "POWER BANK",
             "item": "Oraimo Power Bank 10000mAh",
             "condition": "Brand New, Dual USB, Fast Charge",
             "public_price": 35000,
-            "secret_floor_price": 25000
+            "secret_floor_price": 25000,
+            "stock_qty": 8,
+            "image_file": ""
         },
         {
+            "id": "oraimo_pb20",
             "category": "POWER BANK",
             "item": "Oraimo Power Bank 20000mAh",
             "condition": "Brand New, PD 22.5W Fast Charge",
             "public_price": 55000,
-            "secret_floor_price": 40000
+            "secret_floor_price": 40000,
+            "stock_qty": 5,
+            "image_file": ""
         },
         {
+            "id": "anker_pb26",
             "category": "POWER BANK",
             "item": "Anker Power Bank 26800mAh",
             "condition": "Brand New, USB-C, PowerIQ",
             "public_price": 120000,
-            "secret_floor_price": 95000
+            "secret_floor_price": 95000,
+            "stock_qty": 2,
+            "image_file": ""
         },
         {
+            "id": "samsung_pb10",
             "category": "POWER BANK",
             "item": "Samsung Power Bank 10000mAh",
             "condition": "Brand New, Wireless Charging",
             "public_price": 80000,
-            "secret_floor_price": 65000
+            "secret_floor_price": 65000,
+            "stock_qty": 3,
+            "image_file": ""
         },
         {
+            "id": "samsung_charger45",
             "category": "CHARGER/CABLE",
             "item": "Samsung 45W Super Fast Charger",
             "condition": "Brand New, Original, USB-C",
             "public_price": 40000,
-            "secret_floor_price": 30000
+            "secret_floor_price": 30000,
+            "stock_qty": 10,
+            "image_file": ""
         },
         {
+            "id": "apple_charger20",
             "category": "CHARGER/CABLE",
             "item": "Apple 20W USB-C Charger",
             "condition": "Brand New, Original",
             "public_price": 35000,
-            "secret_floor_price": 25000
+            "secret_floor_price": 25000,
+            "stock_qty": 8,
+            "image_file": ""
         },
         {
+            "id": "cable_lightning",
             "category": "CHARGER/CABLE",
             "item": "USB-C to Lightning Cable 1m",
             "condition": "Brand New, Original Apple",
             "public_price": 20000,
-            "secret_floor_price": 12000
+            "secret_floor_price": 12000,
+            "stock_qty": 15,
+            "image_file": ""
         },
         {
+            "id": "cable_usbc",
             "category": "CHARGER/CABLE",
             "item": "USB-C to USB-C Cable 2m",
             "condition": "Brand New, Fast Charge Compatible",
             "public_price": 15000,
-            "secret_floor_price": 8000
+            "secret_floor_price": 8000,
+            "stock_qty": 15,
+            "image_file": ""
         },
         {
+            "id": "apple_watch9",
             "category": "SMART WATCH",
             "item": "Apple Watch Series 9",
             "condition": "Brand New, 45mm, GPS",
             "public_price": 950000,
-            "secret_floor_price": 800000
+            "secret_floor_price": 800000,
+            "stock_qty": 1,
+            "image_file": ""
         },
         {
+            "id": "galaxy_watch6",
             "category": "SMART WATCH",
             "item": "Samsung Galaxy Watch 6",
             "condition": "Brand New, 44mm, Bluetooth",
             "public_price": 550000,
-            "secret_floor_price": 450000
+            "secret_floor_price": 450000,
+            "stock_qty": 2,
+            "image_file": ""
         },
         {
+            "id": "modio_mw09",
             "category": "SMART WATCH",
             "item": "Modio Smart Watch MW09",
             "condition": "Brand New, AMOLED, Simcard",
             "public_price": 85000,
-            "secret_floor_price": 60000
+            "secret_floor_price": 60000,
+            "stock_qty": 4,
+            "image_file": ""
         },
         {
+            "id": "macbook_air_m2",
             "category": "LAPTOP",
             "item": "MacBook Air M2",
             "condition": "Brand New, 256GB, 8GB RAM, Sealed",
             "public_price": 2800000,
-            "secret_floor_price": 2500000
+            "secret_floor_price": 2500000,
+            "stock_qty": 1,
+            "image_file": ""
         },
         {
+            "id": "macbook_pro_m3",
             "category": "LAPTOP",
             "item": "MacBook Pro M3",
             "condition": "Brand New, 512GB, 8GB RAM",
             "public_price": 4200000,
-            "secret_floor_price": 3800000
+            "secret_floor_price": 3800000,
+            "stock_qty": 1,
+            "image_file": ""
         },
         {
+            "id": "hp_15s",
             "category": "LAPTOP",
             "item": "HP Laptop 15s",
             "condition": "Brand New, 256GB SSD, i5, 8GB RAM",
             "public_price": 1200000,
-            "secret_floor_price": 1000000
+            "secret_floor_price": 1000000,
+            "stock_qty": 2,
+            "image_file": ""
         }
     ]
 }
