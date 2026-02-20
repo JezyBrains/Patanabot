@@ -172,7 +172,10 @@ function clearStockCheck(phone) {
 // ============================================================
 client.on('message', async (message) => {
     try {
-        if (message.from.includes('@g.us')) return;
+        if (message.from.includes('@g.us')) return; // skip groups
+        if (message.from.includes('@broadcast')) return; // skip broadcasts
+        if (message.from === 'status@broadcast') return; // skip status updates
+        if (message.isStatus) return; // skip any status messages
 
         // ============================================================
         // OWNER ADMIN PANEL
