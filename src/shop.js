@@ -4,15 +4,16 @@ import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
 const profilePath = join(__dirname, '..', 'data', 'shop_profile.json');
-const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
 
 /**
- * Converts the shop profile JSON into a human-readable text string
- * for injection into the AI system prompt.
+ * Dynamically reads the shop profile from disk on EVERY call.
+ * This ensures that when the owner uploads a new Excel inventory,
+ * the AI uses the updated prices immediately — no restart needed.
  */
-function buildShopContext() {
+export function getShopContext() {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+
     let context = `🏪 DUKA: ${profile.shop_name}\n`;
     context += `💰 MALIPO: ${profile.payment_info}\n`;
     context += `🚚 DELIVERY: ${profile.delivery_policy}\n\n`;
@@ -29,5 +30,14 @@ function buildShopContext() {
     return context;
 }
 
-export const shopContext = buildShopContext();
-export const shopName = profile.shop_name;
+/**
+ * Get the shop name (read fresh from disk)
+ */
+export function getShopName() {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    return profile.shop_name;
+}
+
+// Export static shopName for startup display only
+const initialProfile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+export const shopName = initialProfile.shop_name;

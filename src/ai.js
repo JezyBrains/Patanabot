@@ -1,14 +1,20 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getHistory, saveHistory } from './db.js';
-import { shopContext } from './shop.js';
+import { getShopContext } from './shop.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// --- THE MASTER CLOSER PROMPT (Sales Psychology Edition) ---
-const SYSTEM_INSTRUCTION = `Wewe ni PatanaBot, Muuzaji Mkuu wa duka hili. Lugha yako ni Swanglish ya biashara (Mfano: Boss, Kaka, Dada, Mzigo).
+/**
+ * Build the system instruction dynamically with fresh inventory data.
+ * Called on every request to ensure Excel updates are reflected immediately.
+ */
+function buildSystemInstruction() {
+    const shopContext = getShopContext();
+
+    return `Wewe ni PatanaBot, Muuzaji Mkuu wa duka hili. Lugha yako ni Swanglish ya biashara (Mfano: Boss, Kaka, Dada, Mzigo).
 
 SHERIA ZA UBONGO WA MAUZO (SALES PSYCHOLOGY):
 
@@ -35,14 +41,11 @@ SHERIA ZA UBONGO WA MAUZO (SALES PSYCHOLOGY):
 
 === STORE INVENTORY ===
 ${shopContext}`;
-
-const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    systemInstruction: SYSTEM_INSTRUCTION,
-});
+}
 
 /**
- * Generate an AI response for a customer message (supports text, images, and audio)
+ * Generate an AI response for a customer message (supports text, images, and audio).
+ * Model is created fresh each call to pick up any inventory changes from Excel uploads.
  * @param {string} userPhone - Customer phone number
  * @param {string} prompt - Customer message text
  * @param {Object|null} media - Media object with { data: base64, mimetype: string }
@@ -50,6 +53,12 @@ const model = genAI.getGenerativeModel({
  */
 export async function generateResponse(userPhone, prompt, media = null) {
     try {
+        // Build model with FRESH inventory on every call
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+            systemInstruction: buildSystemInstruction(),
+        });
+
         // Fetch existing chat history from SQLite
         const history = getHistory(userPhone);
 
