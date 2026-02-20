@@ -13,7 +13,7 @@ import {
     getEscalationCount, incrementEscalation, resetEscalation,
     getCustomerRating, setCustomerRating, getCustomerProfile,
 } from './db.js';
-import { shopName, getInventoryList, deductStock, restoreStock, getItemById } from './shop.js';
+import { shopName, getInventoryList, deductStock, restoreStock, getItemById, getInventoryIds, updatePaymentInfo, setPaymentPolicy, getPaymentPolicy } from './shop.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -196,6 +196,8 @@ client.on('message', async (message) => {
         if (isOwner) {
             if (message.hasMedia) {
                 const media = await message.downloadMedia();
+                const caption = (message.body || '').trim();
+                const upperCaption = caption.toUpperCase();
 
                 const isExcel =
                     (media.mimetype && (
@@ -214,6 +216,33 @@ client.on('message', async (message) => {
                         console.error('❌ Excel error:', err.message);
                         await message.reply(`❌ Excel error: ${err.message}`);
                     }
+
+                    // --- PICHA: Save product image ---
+                } else if (upperCaption.startsWith('PICHA:') && media.mimetype && media.mimetype.includes('image')) {
+                    const itemId = caption.substring(6).trim();
+                    const item = getItemById(itemId);
+                    if (item) {
+                        const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
+                        const fileName = `${itemId}.${ext}`;
+                        const imagePath = join(__dirname, '..', 'data', 'images', fileName);
+
+                        // Save image to disk
+                        const { writeFileSync } = await import('fs');
+                        writeFileSync(imagePath, Buffer.from(media.data, 'base64'));
+
+                        // Update shop_profile.json with filename
+                        const { updateItemImage } = await import('./shop.js');
+                        updateItemImage(itemId, fileName);
+
+                        await message.reply(`✅ Picha ya *${item.item}* imehifadhiwa! 📸\nSasa mteja akiuliza, picha itatumwa automatically.`);
+                        console.log(`📸 [PICHA] ${fileName} saved for ${item.item}`);
+                    } else {
+                        await message.reply(`❌ Item ID "${itemId}" haipo kwenye inventory.\n_Mfano: picha: samsung_s24_\n\nIDs zilizopo:\n${getInventoryIds()}`);
+                    }
+
+                    // Owner sent image without picha: caption — prompt them  
+                } else if (media.mimetype && media.mimetype.includes('image') && !caption) {
+                    await message.reply('📸 Picha nzuri! Ukitaka kuiweka kwa bidhaa, tuma tena na caption:\n_picha: item_id_\n\nMfano: _picha: samsung_s24_');
                 }
             } else {
                 const text = message.body.trim();
@@ -233,6 +262,49 @@ client.on('message', async (message) => {
                         console.error('❌ Text inventory error:', error.message);
                         await message.reply('❌ Sikuelewa maelekezo. Jaribu tena.');
                     }
+
+                    // --- MALIPO: Set payment info ---
+                } else if (upper.startsWith('MALIPO:')) {
+                    const info = text.substring(7).trim();
+                    if (info) {
+                        updatePaymentInfo(info);
+                        await message.reply(`✅ Payment info imesasishwa!\n\n💰 *Malipo Mapya:*\n${info}`);
+                    } else {
+                        await message.reply('❌ Mfano: _malipo: M-Pesa 0686479877 (Jina: Duka Langu). Pia tunapokea Tigo Pesa._');
+                    }
+
+                    // --- SERA: Set payment policy ---
+                } else if (upper.startsWith('SERA:') || upper === 'SERA') {
+                    const policy = text.substring(text.indexOf(':') + 1).trim().toLowerCase();
+                    if (policy === 'kwanza' || policy === 'pay first' || policy === 'lipa kwanza') {
+                        setPaymentPolicy('pay_first');
+                        await message.reply('✅ Sera: Mteja ANALIPA KWANZA kabla ya kupokea mzigo.\n_Bot itamuomba screenshot ya muamala._');
+                    } else if (policy === 'baadaye' || policy === 'cod' || policy === 'lipa baadaye') {
+                        setPaymentPolicy('pay_on_delivery');
+                        await message.reply('✅ Sera: Mteja ANALIPA BAADA ya kupokea na kukagua mzigo.\n_Bot itakamata order bila kusubiri receipt._');
+                    } else {
+                        const current = getPaymentPolicy() === 'pay_first' ? 'Lipa Kwanza' : 'Lipa Baadaye (COD)';
+                        await message.reply(`📋 *Sera ya Malipo Sasa:* ${current}\n\nBadilisha:\n_sera: kwanza_ — Mteja analipa kabla\n_sera: baadaye_ — Mteja analipa akipokea`);
+                    }
+
+                    // --- MSAADA: Help menu ---
+                } else if (upper === 'MSAADA' || upper === 'HELP') {
+                    await message.reply(
+                        `📋 *AMRI ZA BOSS*\n${'━'.repeat(30)}\n\n` +
+                        `📦 *bidhaa* — Ona stoo yote\n` +
+                        `📝 *stoo:* ongeza/futa bidhaa\n` +
+                        `💰 *malipo:* Weka M-Pesa/bank\n` +
+                        `📋 *sera:* Lipa kwanza/baadaye\n` +
+                        `📸 *picha:* (tuma picha + caption)\n` +
+                        `⏸️ *zima:* Simamisha bot kwa mteja\n` +
+                        `▶️ *washa:* Rudisha bot\n` +
+                        `⭐ *rate:* Pima mteja (1-5)\n` +
+                        `👤 *profile:* Tazama mteja\n` +
+                        `✅ *thibitisha* — Malipo OK\n` +
+                        `❌ *kataa* — Malipo hayajaingia\n` +
+                        `✅ *ndiyo* — Stock check ipo\n` +
+                        `❌ *hapana* — Stock check haipo`
+                    );
 
                     // --- ZIMA: Pause bot for customer ---
                 } else if (upper.startsWith('ZIMA:')) {

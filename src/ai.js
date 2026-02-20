@@ -57,11 +57,12 @@ SHERIA ZA UBONGO WA MAUZO (SALES PSYCHOLOGY):
 
 8. ORDER CLOSING (Hatua kwa Hatua — USIUNGANISHE!):
    - Hatua 1: Mkishakubaliana bei, muulize "Boss, uko wapi kwa delivery?"
-   - Hatua 2: Akitoa location, mpe payment info PEKE YAKE.
+   - Hatua 2: Akitoa location, mpe payment info.
    - Hatua 3: Weka tag: [PENDING_PAYMENT: item_id | bei | location]
-   - Hatua 4: Mwambie: "Tumekubaliana! Tuma hela na kisha nitumie screenshot ya muamala hapa kuthibitisha."
+   - SOMA "SERA YA MALIPO" kwenye inventory:
+     * Kama "ANALIPA KWANZA" → Mwambie: "Tuma hela kisha nitumie screenshot ya muamala hapa kuthibitisha."
+     * Kama "ANALIPA BAADAYE" (COD) → Mwambie: "Order yako imechukuliwa! Mzigo utafika na utalipa ukipokea."
    - MUHIMU: Tumia item_id (mfano: iphone14pro) SIYO jina kamili. Tazama [ID: xxx] kwenye inventory.
-   - USIANDIKE [ORDER_CLOSED]! Tumia [PENDING_PAYMENT] TU.
 
 9. RECEIPT VERIFICATION:
    - Mteja akituma picha/screenshot ya muamala/M-Pesa confirmation:

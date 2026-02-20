@@ -45,7 +45,9 @@ export function getShopContext() {
 
     let context = `🏪 DUKA: ${profile.shop_name}\n`;
     context += `💰 MALIPO: ${profile.payment_info}\n`;
-    context += `🚚 DELIVERY: ${profile.delivery_policy}\n\n`;
+    context += `🚚 DELIVERY: ${profile.delivery_policy}\n`;
+    const policy = profile.payment_policy || 'pay_first';
+    context += `📋 SERA YA MALIPO: ${policy === 'pay_first' ? 'Mteja ANALIPA KWANZA kabla ya kupokea mzigo' : 'Mteja ANALIPA BAADAYE akipokea na kukagua mzigo (COD)'}\n\n`;
     context += `📦 BIDHAA ZILIZOPO:\n`;
     context += `${'─'.repeat(50)}\n`;
 
@@ -147,4 +149,52 @@ export function restoreStock(itemId) {
     writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
     console.log(`📦 [STOCK RESTORED] ${item.item}: ${item.stock_qty} now`);
     return true;
+}
+
+/**
+ * Update a product's image_file field
+ */
+export function updateItemImage(itemId, fileName) {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const item = profile.inventory.find(i => i.id === itemId);
+    if (!item) return false;
+    item.image_file = fileName;
+    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    return true;
+}
+
+/**
+ * Get all inventory IDs for owner display
+ */
+export function getInventoryIds() {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    return profile.inventory.map(i => `• ${i.id} → ${i.item}`).join('\n');
+}
+
+/**
+ * Update payment info (M-Pesa, bank, etc.)
+ */
+export function updatePaymentInfo(newInfo) {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    profile.payment_info = newInfo;
+    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    return true;
+}
+
+/**
+ * Set payment policy: 'pay_first' or 'pay_on_delivery'
+ */
+export function setPaymentPolicy(policy) {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    profile.payment_policy = policy; // 'pay_first' or 'pay_on_delivery'
+    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    return true;
+}
+
+/**
+ * Get current payment policy
+ */
+export function getPaymentPolicy() {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    return profile.payment_policy || 'pay_first';
 }
