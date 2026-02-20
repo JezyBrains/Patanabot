@@ -59,7 +59,8 @@ export function getShopContext() {
         context += `  Bei ya Kawaida: TZS ${item.public_price.toLocaleString()}\n`;
         context += `  🔒 Floor Price (SIRI!): TZS ${item.secret_floor_price.toLocaleString()}\n`;
         context += `  📦 Stock: ${qty} pcs\n`;
-        if (item.image_file) context += `  🖼️ Picha: ${item.id}\n`;
+        const imgCount = Array.isArray(item.images) ? item.images.length : (item.image_file ? 1 : 0);
+        if (imgCount > 0) context += `  🖼️ Picha: ${imgCount} (${item.id})\n`;
         context += `\n`;
     }
 
@@ -152,15 +153,60 @@ export function restoreStock(itemId) {
 }
 
 /**
- * Update a product's image_file field
+ * Add an image to a product's images array (supports multiple photos)
  */
-export function updateItemImage(itemId, fileName) {
+export function addProductImage(itemId, fileName) {
     const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
     const item = profile.inventory.find(i => i.id === itemId);
     if (!item) return false;
-    item.image_file = fileName;
+    // Migrate from old image_file string to images array
+    if (!Array.isArray(item.images)) {
+        item.images = item.image_file ? [item.image_file] : [];
+        delete item.image_file;
+    }
+    item.images.push(fileName);
     writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
     return true;
+}
+
+/**
+ * Quick-add a product from owner's photo caption.
+ * Format: "product name, floor price, stock qty, selling unit"
+ * Returns { item, isNew } or throws error.
+ */
+export function addQuickProduct(name, floorPrice, stockQty, unit) {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+
+    // Generate ID from name: "Maji ya Uhai" → "maji_ya_uhai"
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+    // Check if product already exists
+    const existing = profile.inventory.find(i => i.id === id);
+    if (existing) {
+        // Update stock and price if exists
+        existing.secret_floor_price = floorPrice;
+        existing.public_price = Math.round(floorPrice * 1.3); // 30% markup
+        existing.stock_qty = stockQty;
+        if (unit) existing.condition = unit;
+        writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+        return { item: existing, isNew: false };
+    }
+
+    // Create new product
+    const markup = Math.round(floorPrice * 1.3); // 30% default markup
+    const newItem = {
+        id,
+        category: 'NYINGINE',
+        item: name,
+        condition: unit || 'Brand New',
+        public_price: markup,
+        secret_floor_price: floorPrice,
+        stock_qty: stockQty,
+        images: [],
+    };
+    profile.inventory.push(newItem);
+    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    return { item: newItem, isNew: true };
 }
 
 /**

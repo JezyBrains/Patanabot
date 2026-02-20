@@ -13,7 +13,7 @@ import {
     getEscalationCount, incrementEscalation, resetEscalation,
     getCustomerRating, setCustomerRating, getCustomerProfile,
 } from './db.js';
-import { shopName, getInventoryList, deductStock, restoreStock, getItemById, getInventoryIds, updatePaymentInfo, setPaymentPolicy, getPaymentPolicy } from './shop.js';
+import { shopName, getInventoryList, deductStock, restoreStock, getItemById, getInventoryIds, updatePaymentInfo, setPaymentPolicy, getPaymentPolicy, addQuickProduct, addProductImage } from './shop.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -217,32 +217,62 @@ client.on('message', async (message) => {
                         await message.reply(`❌ Excel error: ${err.message}`);
                     }
 
-                    // --- PICHA: Save product image ---
-                } else if (upperCaption.startsWith('PICHA:') && media.mimetype && media.mimetype.includes('image')) {
-                    const itemId = caption.substring(6).trim();
-                    const item = getItemById(itemId);
-                    if (item) {
-                        const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
-                        const fileName = `${itemId}.${ext}`;
-                        const imagePath = join(__dirname, '..', 'data', 'images', fileName);
+                    // --- Owner IMAGE: Quick-add OR add photo to existing ---
+                } else if (media.mimetype && media.mimetype.includes('image')) {
+                    const { writeFileSync: writeImg } = await import('fs');
 
-                        // Save image to disk
-                        const { writeFileSync } = await import('fs');
-                        writeFileSync(imagePath, Buffer.from(media.data, 'base64'));
+                    if (upperCaption.startsWith('PICHA:')) {
+                        // Add more photos to existing product
+                        const itemId = caption.substring(6).trim();
+                        const item = getItemById(itemId);
+                        if (item) {
+                            const existing = Array.isArray(item.images) ? item.images.length : 0;
+                            const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
+                            const fileName = `${itemId}_${existing + 1}.${ext}`;
+                            writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
+                            addProductImage(itemId, fileName);
+                            await message.reply(`✅ Picha #${existing + 1} ya *${item.item}* imehifadhiwa! 📸`);
+                        } else {
+                            await message.reply(`❌ ID "${itemId}" haipo.\n${getInventoryIds()}`);
+                        }
 
-                        // Update shop_profile.json with filename
-                        const { updateItemImage } = await import('./shop.js');
-                        updateItemImage(itemId, fileName);
+                    } else if (caption && caption.includes(',')) {
+                        // Quick-add: "name, price, qty, unit"
+                        const parts = caption.split(',').map(p => p.trim());
+                        if (parts.length >= 3) {
+                            const name = parts[0];
+                            const floorPrice = parseInt(parts[1].replace(/\D/g, ''));
+                            const stockQty = parseInt(parts[2]);
+                            const unit = parts[3] || '';
+                            if (!name || isNaN(floorPrice) || isNaN(stockQty)) {
+                                await message.reply('❌ _Mfano: Maji ya Uhai, 12000, 15, carton of 12_');
+                                return;
+                            }
+                            const { item, isNew } = addQuickProduct(name, floorPrice, stockQty, unit);
+                            const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
+                            const existing = Array.isArray(item.images) ? item.images.length : 0;
+                            const fileName = `${item.id}_${existing + 1}.${ext}`;
+                            writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
+                            addProductImage(item.id, fileName);
+                            await message.reply(
+                                `✅ *${item.item}* ${isNew ? 'imeongezwa' : 'imesasishwa'}! 📦📸\n\n` +
+                                `🆔 ID: ${item.id}\n💰 Bei: TZS ${item.public_price.toLocaleString()}\n` +
+                                `🔒 Floor: TZS ${item.secret_floor_price.toLocaleString()}\n📦 Stock: ${stockQty}\n` +
+                                (unit ? `📏 Unit: ${unit}\n` : '') +
+                                `\n_Picha zaidi?_ picha: ${item.id}`
+                            );
+                        } else {
+                            await message.reply('❌ _Mfano: Maji ya Uhai, 12000, 15, carton of 12_');
+                        }
 
-                        await message.reply(`✅ Picha ya *${item.item}* imehifadhiwa! 📸\nSasa mteja akiuliza, picha itatumwa automatically.`);
-                        console.log(`📸 [PICHA] ${fileName} saved for ${item.item}`);
                     } else {
-                        await message.reply(`❌ Item ID "${itemId}" haipo kwenye inventory.\n_Mfano: picha: samsung_s24_\n\nIDs zilizopo:\n${getInventoryIds()}`);
+                        await message.reply(
+                            `📸 *Ongeza bidhaa:* Picha + caption:\n` +
+                            `_Samsung S24, 1200000, 3, Brand New 256GB_\n\n` +
+                            `*Picha zaidi:* _picha: samsung_s24_\n\n` +
+                            `Format: _jina, bei ya kununua, stock, maelezo_`
+                        );
                     }
-
-                    // Owner sent image without picha: caption — prompt them  
-                } else if (media.mimetype && media.mimetype.includes('image') && !caption) {
-                    await message.reply('📸 Picha nzuri! Ukitaka kuiweka kwa bidhaa, tuma tena na caption:\n_picha: item_id_\n\nMfano: _picha: samsung_s24_');
                 }
             } else {
                 const text = message.body.trim();
@@ -693,20 +723,25 @@ client.on('message', async (message) => {
             aiResponse = aiResponse.replace(SEND_IMAGE_TAG_REGEX, '').trim();
 
             const item = getItemById(itemId);
-            if (item && item.image_file) {
-                const imagePath = join(__dirname, '..', 'data', 'images', item.image_file);
-                if (existsSync(imagePath)) {
-                    // Send text first, then image
-                    if (aiResponse.length > 0) {
-                        await message.reply(aiResponse);
-                    }
-                    const media2 = MessageMedia.fromFilePath(imagePath);
-                    await client.sendMessage(message.from, media2);
-                    console.log(`🖼️ [SEND IMAGE] ${item.image_file} → ${userPhone}`);
-                    return;
-                } else {
-                    console.log(`⚠️ [IMAGE MISSING] ${item.image_file} not found`);
+            // Get images list (support both old image_file string and new images[] array)
+            const images = Array.isArray(item?.images) ? item.images
+                : (item?.image_file ? [item.image_file] : []);
+
+            if (images.length > 0) {
+                // Send text first
+                if (aiResponse.length > 0) {
+                    await message.reply(aiResponse);
                 }
+                // Send ALL product photos
+                for (const imgFile of images) {
+                    const imagePath = join(__dirname, '..', 'data', 'images', imgFile);
+                    if (existsSync(imagePath)) {
+                        const media2 = MessageMedia.fromFilePath(imagePath);
+                        await client.sendMessage(message.from, media2);
+                    }
+                }
+                console.log(`🖼️ [SEND IMAGE] ${images.length} photos → ${userPhone}`);
+                return;
             }
         }
 
