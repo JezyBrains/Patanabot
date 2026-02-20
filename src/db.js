@@ -33,11 +33,14 @@ db.exec(`
   );
 `);
 
-// Migrate: add bot_paused column if missing (safe for existing DBs)
-try {
-  db.exec(`ALTER TABLE customers ADD COLUMN bot_paused BOOLEAN DEFAULT 0`);
-} catch {
-  // Column already exists — ignore
+// Migrate: add new columns if missing (safe for existing DBs)
+const migrations = [
+  'ALTER TABLE customers ADD COLUMN bot_paused BOOLEAN DEFAULT 0',
+  'ALTER TABLE customers ADD COLUMN customer_rating INTEGER DEFAULT 3',
+  'ALTER TABLE customers ADD COLUMN escalation_count INTEGER DEFAULT 0',
+];
+for (const sql of migrations) {
+  try { db.exec(sql); } catch { /* column already exists */ }
 }
 
 console.log('✅ Database initialized at data/patana.db (Enterprise Edition)');
@@ -134,6 +137,56 @@ export function resumeAllBots() {
   const result = db.prepare('UPDATE customers SET bot_paused = 0 WHERE bot_paused = 1').run();
   console.log(`▶️ BOT RESUMED for ALL customers (${result.changes} unpaused)`);
   return result.changes;
+}
+
+// --- Enterprise: Escalation Tracking ---
+
+export function getEscalationCount(phone) {
+  const row = db.prepare('SELECT escalation_count FROM customers WHERE phone = ?').get(phone);
+  return row ? row.escalation_count : 0;
+}
+
+export function incrementEscalation(phone) {
+  db.prepare(`
+    INSERT INTO customers (phone, escalation_count) VALUES (?, 1)
+    ON CONFLICT(phone) DO UPDATE SET escalation_count = escalation_count + 1
+  `).run(phone);
+  return getEscalationCount(phone);
+}
+
+export function resetEscalation(phone) {
+  db.prepare('UPDATE customers SET escalation_count = 0 WHERE phone = ?').run(phone);
+}
+
+// --- Enterprise: Customer Rating (1-5 stars) ---
+
+export function getCustomerRating(phone) {
+  const row = db.prepare('SELECT customer_rating FROM customers WHERE phone = ?').get(phone);
+  return row ? row.customer_rating : 3; // Default: neutral
+}
+
+export function setCustomerRating(phone, rating) {
+  const clamped = Math.max(1, Math.min(5, parseInt(rating) || 3));
+  db.prepare(`
+    INSERT INTO customers (phone, customer_rating) VALUES (?, ?)
+    ON CONFLICT(phone) DO UPDATE SET customer_rating = ?
+  `).run(phone, clamped, clamped);
+  console.log(`⭐ Customer ${phone} rated: ${'⭐'.repeat(clamped)}`);
+}
+
+export function getCustomerProfile(phone) {
+  const row = db.prepare('SELECT customer_rating, escalation_count FROM customers WHERE phone = ?').get(phone);
+  if (!row) return { rating: 3, escalations: 0, label: '🟡 Mpya' };
+
+  const r = row.customer_rating;
+  let label;
+  if (r >= 5) label = '🟢 VIP Safi';
+  else if (r >= 4) label = '🟢 Mteja Mzuri';
+  else if (r >= 3) label = '🟡 Kawaida';
+  else if (r >= 2) label = '🟠 Mgumu';
+  else label = '🔴 Hatari';
+
+  return { rating: r, escalations: row.escalation_count, label };
 }
 
 // --- Enterprise: Missed Opportunities ---
