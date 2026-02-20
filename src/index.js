@@ -221,9 +221,9 @@ client.on('message', async (message) => {
                 } else if (media.mimetype && media.mimetype.includes('image')) {
                     const { writeFileSync: writeImg } = await import('fs');
 
-                    if (upperCaption.startsWith('PICHA:')) {
+                    if (upperCaption.startsWith('PICHA:') || upperCaption.startsWith('PICHA ')) {
                         // Add more photos to existing product — fuzzy name match
-                        const query = caption.substring(6).trim();
+                        const query = caption.replace(/^picha[:\s]+/i, '').trim();
                         const item = findItemByName(query);
                         if (item) {
                             const existing = Array.isArray(item.images) ? item.images.length : 0;
@@ -265,12 +265,29 @@ client.on('message', async (message) => {
                             await message.reply('❌ _Mfano: Maji ya Uhai, 12000, 15, carton of 12_');
                         }
 
+                    } else if (caption) {
+                        // Caption with no comma and no picha: — try matching as product name for extra photo
+                        const item = findItemByName(caption);
+                        if (item) {
+                            const existing = Array.isArray(item.images) ? item.images.length : 0;
+                            const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
+                            const fileName = `${item.id}_${existing + 1}.${ext}`;
+                            writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
+                            addProductImage(item.id, fileName);
+                            await message.reply(`✅ Picha #${existing + 1} ya *${item.item}* imehifadhiwa! 📸`);
+                        } else {
+                            await message.reply(
+                                `📸 *Ongeza bidhaa:* Picha + caption:\n` +
+                                `_Samsung S24, 1200000, 3, Brand New 256GB_\n\n` +
+                                `*Picha zaidi:* Picha + jina la bidhaa\n\n` +
+                                `Format: _jina, bei ya kununua, stock, maelezo_`
+                            );
+                        }
                     } else {
                         await message.reply(
                             `📸 *Ongeza bidhaa:* Picha + caption:\n` +
                             `_Samsung S24, 1200000, 3, Brand New 256GB_\n\n` +
-                            `*Picha zaidi:* _picha: Samsung S24_\n\n` +
-                            `Format: _jina, bei ya kununua, stock, maelezo_`
+                            `*Picha zaidi:* Picha + jina la bidhaa`
                         );
                     }
                 }
