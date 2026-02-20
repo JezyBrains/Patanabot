@@ -13,7 +13,7 @@ import {
     getEscalationCount, incrementEscalation, resetEscalation,
     getCustomerRating, setCustomerRating, getCustomerProfile,
 } from './db.js';
-import { shopName, getInventoryList, deductStock, restoreStock, getItemById, getInventoryIds, updatePaymentInfo, setPaymentPolicy, getPaymentPolicy, addQuickProduct, addProductImage } from './shop.js';
+import { shopName, getInventoryList, deductStock, restoreStock, getItemById, getInventoryIds, updatePaymentInfo, setPaymentPolicy, getPaymentPolicy, addQuickProduct, addProductImage, findItemByName } from './shop.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -222,18 +222,18 @@ client.on('message', async (message) => {
                     const { writeFileSync: writeImg } = await import('fs');
 
                     if (upperCaption.startsWith('PICHA:')) {
-                        // Add more photos to existing product
-                        const itemId = caption.substring(6).trim();
-                        const item = getItemById(itemId);
+                        // Add more photos to existing product — fuzzy name match
+                        const query = caption.substring(6).trim();
+                        const item = findItemByName(query);
                         if (item) {
                             const existing = Array.isArray(item.images) ? item.images.length : 0;
                             const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
-                            const fileName = `${itemId}_${existing + 1}.${ext}`;
+                            const fileName = `${item.id}_${existing + 1}.${ext}`;
                             writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
-                            addProductImage(itemId, fileName);
+                            addProductImage(item.id, fileName);
                             await message.reply(`✅ Picha #${existing + 1} ya *${item.item}* imehifadhiwa! 📸`);
                         } else {
-                            await message.reply(`❌ ID "${itemId}" haipo.\n${getInventoryIds()}`);
+                            await message.reply(`❌ "${query}" haipo. Jaribu jina lingine.`);
                         }
 
                     } else if (caption && caption.includes(',')) {
@@ -259,7 +259,7 @@ client.on('message', async (message) => {
                                 `🆔 ID: ${item.id}\n💰 Bei: TZS ${item.public_price.toLocaleString()}\n` +
                                 `🔒 Floor: TZS ${item.secret_floor_price.toLocaleString()}\n📦 Stock: ${stockQty}\n` +
                                 (unit ? `📏 Unit: ${unit}\n` : '') +
-                                `\n_Picha zaidi?_ picha: ${item.id}`
+                                `\n_Picha zaidi?_ picha: ${item.item}`
                             );
                         } else {
                             await message.reply('❌ _Mfano: Maji ya Uhai, 12000, 15, carton of 12_');
@@ -269,7 +269,7 @@ client.on('message', async (message) => {
                         await message.reply(
                             `📸 *Ongeza bidhaa:* Picha + caption:\n` +
                             `_Samsung S24, 1200000, 3, Brand New 256GB_\n\n` +
-                            `*Picha zaidi:* _picha: samsung_s24_\n\n` +
+                            `*Picha zaidi:* _picha: Samsung S24_\n\n` +
                             `Format: _jina, bei ya kununua, stock, maelezo_`
                         );
                     }

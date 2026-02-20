@@ -127,6 +127,26 @@ export function getItemById(itemId) {
 }
 
 /**
+ * Find an item by name (fuzzy, case-insensitive partial match).
+ * Owner types "picha: maji" → finds "Maji ya Uhai"
+ */
+export function findItemByName(query) {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const q = query.toLowerCase().trim();
+    // Try exact ID first
+    const byId = profile.inventory.find(i => i.id === q);
+    if (byId) return byId;
+    // Try exact name match
+    const byName = profile.inventory.find(i => i.item.toLowerCase() === q);
+    if (byName) return byName;
+    // Try partial name match
+    const byPartial = profile.inventory.find(i => i.item.toLowerCase().includes(q));
+    if (byPartial) return byPartial;
+    // Try partial ID match
+    return profile.inventory.find(i => i.id.includes(q)) || null;
+}
+
+/**
  * Deduct stock by 1. Returns true if successful, false if out of stock.
  */
 export function deductStock(itemId) {
