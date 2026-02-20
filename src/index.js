@@ -399,6 +399,20 @@ client.on('message', async (message) => {
 
         const text = message.body.trim();
 
+        // --- Filter out messages from other bots/systems ---
+        const BOT_PATTERNS = [
+            /muda wako.*umeisha/i,
+            /andika\s+LIPA/i,
+            /kujifunza bure/i,
+            /USSD kwenye simu/i,
+            /weka PIN tu/i,
+            /umejifunza vizuri/i,
+        ];
+        if (text && BOT_PATTERNS.some(p => p.test(text))) {
+            console.log(`🤖 [BOT FILTER] Ignored automated message from ${userPhone}`);
+            return;
+        }
+
         // Download media if present
         let media = null;
         if (message.hasMedia) {
