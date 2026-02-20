@@ -70,3 +70,30 @@ export function getShopName() {
 // Export static shopName for startup display only
 const initialProfile = JSON.parse(readFileSync(profilePath, 'utf-8'));
 export const shopName = initialProfile.shop_name;
+
+/**
+ * Get a formatted inventory list for owner display via WhatsApp
+ */
+export function getInventoryList() {
+    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const items = profile.inventory;
+
+    if (!items || items.length === 0) return '📦 Stoo iko tupu! Tuma Excel au andika STOO: kuongeza bidhaa.';
+
+    let list = `📦 *STOO YA ${profile.shop_name.toUpperCase()}*\n`;
+    list += `Bidhaa: ${items.length}\n${'━'.repeat(30)}\n\n`;
+
+    items.forEach((item, i) => {
+        list += `*${i + 1}. ${item.item}*\n`;
+        list += `   📋 ${item.condition}\n`;
+        list += `   💰 Bei: TZS ${item.public_price.toLocaleString()}\n`;
+        list += `   🔒 Floor: TZS ${item.secret_floor_price.toLocaleString()}\n\n`;
+    });
+
+    list += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    list += `_Kubadili:_ STOO: au UPDATE:\n`;
+    list += `_Kufuta:_ STOO: Futa iPhone 13\n`;
+    list += `_Kubadili bei:_ UPDATE: Shusha AirPods kwa 5K`;
+
+    return list;
+}

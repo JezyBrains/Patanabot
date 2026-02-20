@@ -12,7 +12,7 @@ import {
     getEscalationCount, incrementEscalation, resetEscalation,
     getCustomerRating, setCustomerRating, getCustomerProfile,
 } from './db.js';
-import { shopName } from './shop.js';
+import { shopName, getInventoryList } from './shop.js';
 import { updateInventoryFromExcel } from './inventory.js';
 import { updateInventoryFromText } from './admin.js';
 
@@ -200,8 +200,12 @@ client.on('message', async (message) => {
                 const text = message.body.trim();
                 const upper = text.toUpperCase();
 
-                // --- STOO / UPDATE: Inventory management ---
-                if (upper.startsWith('STOO:') || upper.startsWith('UPDATE:')) {
+                // --- BIDHAA: List inventory ---
+                if (upper === 'BIDHAA' || upper === 'STOO' || upper === 'LIST') {
+                    await message.reply(getInventoryList());
+
+                    // --- STOO / UPDATE: Inventory management ---
+                } else if (upper.startsWith('STOO:') || upper.startsWith('UPDATE:')) {
                     await message.reply('⏳ Nasasisha stoo...');
                     try {
                         const newCount = await updateInventoryFromText(text);
