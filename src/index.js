@@ -106,6 +106,9 @@ const TROLL_TAG_REGEX = /\[TROLL\]/;
 // phone → { itemId, price, location, timestamp }
 const pendingPayments = new Map();
 
+// --- Last product owner interacted with (for captionless photo attach) ---
+let lastOwnerProduct = null;
+
 // --- Anti-Spam: Rate Limiter (per customer) ---
 const COOLDOWN_MS = 5000;
 const lastMessageTime = new Map();
@@ -231,6 +234,7 @@ client.on('message', async (message) => {
                             const fileName = `${item.id}_${existing + 1}.${ext}`;
                             writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
                             addProductImage(item.id, fileName);
+                            lastOwnerProduct = item.id;
                             await message.reply(`✅ Picha #${existing + 1} ya *${item.item}* imehifadhiwa! 📸`);
                         } else {
                             await message.reply(`❌ "${query}" haipo. Jaribu jina lingine.`);
@@ -254,12 +258,13 @@ client.on('message', async (message) => {
                             const fileName = `${item.id}_${existing + 1}.${ext}`;
                             writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
                             addProductImage(item.id, fileName);
+                            lastOwnerProduct = item.id;
                             await message.reply(
                                 `✅ *${item.item}* ${isNew ? 'imeongezwa' : 'imesasishwa'}! 📦📸\n\n` +
                                 `🆔 ID: ${item.id}\n💰 Bei: TZS ${item.public_price.toLocaleString()}\n` +
                                 `🔒 Floor: TZS ${item.secret_floor_price.toLocaleString()}\n📦 Stock: ${stockQty}\n` +
                                 (unit ? `📏 Unit: ${unit}\n` : '') +
-                                `\n_Picha zaidi?_ picha: ${item.item}`
+                                `\n_Picha zaidi? Tuma picha tu — zitaongezwa hapa._`
                             );
                         } else {
                             await message.reply('❌ _Mfano: Maji ya Uhai, 12000, 15, carton of 12_');
@@ -274,6 +279,7 @@ client.on('message', async (message) => {
                             const fileName = `${item.id}_${existing + 1}.${ext}`;
                             writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
                             addProductImage(item.id, fileName);
+                            lastOwnerProduct = item.id;
                             await message.reply(`✅ Picha #${existing + 1} ya *${item.item}* imehifadhiwa! 📸`);
                         } else {
                             await message.reply(
@@ -284,10 +290,23 @@ client.on('message', async (message) => {
                             );
                         }
                     } else {
+                        // No caption — auto-attach to last product
+                        if (lastOwnerProduct) {
+                            const item = getItemById(lastOwnerProduct);
+                            if (item) {
+                                const existing = Array.isArray(item.images) ? item.images.length : 0;
+                                const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
+                                const fileName = `${item.id}_${existing + 1}.${ext}`;
+                                writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
+                                addProductImage(item.id, fileName);
+                                await message.reply(`✅ Picha #${existing + 1} ya *${item.item}* imeongezwa! 📸\n_Endelea kutuma picha au andika jina jipya._`);
+                                return;
+                            }
+                        }
                         await message.reply(
                             `📸 *Ongeza bidhaa:* Picha + caption:\n` +
                             `_Samsung S24, 1200000, 3, Brand New 256GB_\n\n` +
-                            `*Picha zaidi:* Picha + jina la bidhaa`
+                            `*Picha zaidi:* Tuma picha tu bila caption`
                         );
                     }
                 }
