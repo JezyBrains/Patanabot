@@ -93,10 +93,15 @@ const ORDER_TAG_REGEX = /\[ORDER_CLOSED:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\]/
 const ALERT_TAG_REGEX = /\[ALERT:\s*(.+?)\s*\]/;
 const OOS_TAG_REGEX = /\[OUT_OF_STOCK:\s*(.+?)\s*\]/;
 const CHECK_STOCK_TAG_REGEX = /\[CHECK_STOCK:\s*(.+?)\s*\]/;
+const TROLL_TAG_REGEX = /\[TROLL\]/;
 
 // --- Anti-Spam: Rate Limiter (per customer) ---
 const COOLDOWN_MS = 5000;
 const lastMessageTime = new Map();
+
+// --- Anti-Troll: Auto-ignore time-wasters ---
+const trollCooldown = new Map(); // phone → expiry timestamp
+const TROLL_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
 
 // --- Escalation Relay: Active escalations (multi-customer) ---
 const MAX_ESCALATIONS_PER_CUSTOMER = 5;
@@ -382,6 +387,16 @@ client.on('message', async (message) => {
         }
         lastMessageTime.set(userPhone, now);
 
+        // Anti-troll: check if customer is in cooldown
+        const trollExpiry = trollCooldown.get(userPhone);
+        if (trollExpiry && now < trollExpiry) {
+            console.log(`🚫 [TROLL COOLDOWN] ${userPhone} — ignored (${Math.round((trollExpiry - now) / 60000)}m left)`);
+            return;
+        }
+        if (trollExpiry && now >= trollExpiry) {
+            trollCooldown.delete(userPhone);
+        }
+
         const text = message.body.trim();
 
         // Download media if present
@@ -476,6 +491,41 @@ client.on('message', async (message) => {
             saveMissedOpportunity(item.trim());
             aiResponse = aiResponse.replace(fullTag, '').trim();
             console.log(`📉 [OUT OF STOCK] "${item}" — logged`);
+        }
+
+        // --- TROLL Interceptor (auto-cooldown time-wasters) ---
+        const trollMatch = aiResponse.match(TROLL_TAG_REGEX);
+        if (trollMatch) {
+            aiResponse = aiResponse.replace(TROLL_TAG_REGEX, '').trim();
+
+            // Put customer in 30-minute cooldown
+            trollCooldown.set(userPhone, Date.now() + TROLL_COOLDOWN_MS);
+
+            // Downrate customer
+            const currentRating = getCustomerRating(userPhone);
+            if (currentRating > 1) setCustomerRating(userPhone, Math.max(1, currentRating - 1));
+
+            // Alert owner
+            if (OWNER_PHONE) {
+                const profile2 = getCustomerProfile(userPhone);
+                await client.sendMessage(
+                    OWNER_PHONE,
+                    `🚫 *TROLL DETECTED:* +${userPhone}\n${profile2.label}\nAmepigwa cooldown ya dakika 30.`
+                );
+            }
+
+            // Schedule follow-up after cooldown
+            setTimeout(async () => {
+                try {
+                    await client.sendMessage(
+                        message.from,
+                        'Habari Boss! 👋 Natumaini uko salama. Kama unahitaji bidhaa yoyote leo, nipo hapa kukusaidia! 🔥'
+                    );
+                    console.log(`🔄 [FOLLOW-UP] ${userPhone} — re-engagement sent`);
+                } catch { /* ignore if send fails */ }
+            }, TROLL_COOLDOWN_MS);
+
+            console.log(`🚫 [TROLL] ${userPhone} — 30min cooldown + follow-up scheduled`);
         }
 
         // Reply to customer
