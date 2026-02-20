@@ -60,11 +60,31 @@ export async function generateResponse(userPhone, prompt, media = null) {
         });
 
         // Fetch existing chat history from SQLite
-        const history = getHistory(userPhone);
+        let history = getHistory(userPhone);
 
-        // Start chat with history context
+        // Sanitize history — Gemini requires first message to be role 'user'
+        // Remove leading 'model' messages and ensure alternating user/model pattern
+        while (history.length > 0 && history[0].role !== 'user') {
+            history.shift();
+        }
+
+        // Ensure history has valid alternating pattern (user, model, user, model...)
+        const cleanHistory = [];
+        let expectedRole = 'user';
+        for (const msg of history) {
+            if (msg.role === expectedRole && msg.parts && msg.parts.length > 0) {
+                cleanHistory.push(msg);
+                expectedRole = expectedRole === 'user' ? 'model' : 'user';
+            }
+        }
+        // History must end with 'model' (even number of messages: user+model pairs)
+        if (cleanHistory.length > 0 && cleanHistory[cleanHistory.length - 1].role === 'user') {
+            cleanHistory.pop();
+        }
+
+        // Start chat with sanitized history
         const chat = model.startChat({
-            history: history,
+            history: cleanHistory,
         });
 
         // Build the message content — supports multimodal (text + image/audio)
@@ -86,9 +106,8 @@ export async function generateResponse(userPhone, prompt, media = null) {
         const responseText = result.response.text();
 
         // Build updated history (user message + model response)
-        // Note: We only store text parts in history to keep SQLite lean
         const updatedHistory = [
-            ...history,
+            ...cleanHistory,
             { role: 'user', parts: [{ text: prompt || '[Media Message]' }] },
             { role: 'model', parts: [{ text: responseText }] },
         ];
@@ -99,6 +118,13 @@ export async function generateResponse(userPhone, prompt, media = null) {
         return responseText;
     } catch (error) {
         console.error(`❌ AI Error for ${userPhone}:`, error.message);
+
+        // If history is corrupted, clear it so next message works fresh
+        if (error.message.includes('First content') || error.message.includes('role')) {
+            saveHistory(userPhone, []);
+            console.log(`🧹 Cleared corrupted history for ${userPhone} — next message will work`);
+        }
+
         return 'Samahani Boss, kuna tatizo la mfumo kwa sasa. Tafadhali jaribu tena baadaye! 🙏';
     }
 }

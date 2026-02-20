@@ -98,7 +98,9 @@ const ORDER_TAG_REGEX = /\[ORDER_CLOSED:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\]/
 const ESCALATE_TAG_REGEX = /\[ESCALATE\]/;
 const OOS_TAG_REGEX = /\[OUT_OF_STOCK:\s*(.+?)\s*\]/;
 
-
+// --- Anti-Spam: Rate Limiter (per customer) ---
+const COOLDOWN_MS = 5000; // 5 seconds between AI calls per customer
+const lastMessageTime = new Map();
 // ============================================================
 // MAIN MESSAGE HANDLER (Incoming Messages)
 // ============================================================
@@ -204,6 +206,15 @@ client.on('message', async (message) => {
             console.log(`⏸️ [PAUSED] Ignoring message from ${userPhone} — owner is handling`);
             return;
         }
+
+        // --- Anti-Spam: Rate Limiter ---
+        const now = Date.now();
+        const lastTime = lastMessageTime.get(userPhone) || 0;
+        if (now - lastTime < COOLDOWN_MS) {
+            console.log(`🛡️ [RATE LIMIT] Ignoring rapid message from ${userPhone} (${Math.round((now - lastTime) / 1000)}s < ${COOLDOWN_MS / 1000}s)`);
+            return;
+        }
+        lastMessageTime.set(userPhone, now);
 
         const text = message.body.trim();
 
