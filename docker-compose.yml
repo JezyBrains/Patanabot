@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  patanabot:
+    build: .
+    container_name: patanabot-service
+    restart: unless-stopped
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - patanabot-data:/app/data
+
+volumes:
+  patanabot-data:
