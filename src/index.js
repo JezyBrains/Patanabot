@@ -292,7 +292,7 @@ client.on('message', async (message) => {
                         clearStockCheck(targetPhone);
                         const confirmResponse = await generateResponse(
                             targetPhone,
-                            `🔑 MAELEKEZO YA BOSS: Tumeiconfirm bidhaa "${check.item}" ipo! Mwambie mteja tuna na mpe bei.`
+                            `🔑 MAELEKEZO YA BOSS: Tumeipata "${check.item}"! Mwambie mteja habari njema — "${check.item}" ipo! Muulize kama anataka na mpe bei. MUHIMU: Zungumzia "${check.item}" TU — USITAJE bidhaa nyingine yoyote!`
                         );
                         let clean = confirmResponse.replace(ALERT_TAG_REGEX, '').replace(CHECK_STOCK_TAG_REGEX, '').trim();
                         await client.sendMessage(`${targetPhone}@c.us`, clean);
