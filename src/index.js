@@ -3,6 +3,8 @@ const { Client, LocalAuth } = pkg;
 import qrcode from 'qrcode-terminal';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
+import { existsSync, unlinkSync, readdirSync, statSync } from 'fs';
+import { join } from 'path';
 import { generateResponse } from './ai.js';
 import { saveOrder, pauseBot, isBotActive, saveMissedOpportunity, getDailySummary } from './db.js';
 import { shopName } from './shop.js';
@@ -12,6 +14,31 @@ import { updateInventoryFromText } from './admin.js';
 dotenv.config();
 
 const OWNER_PHONE = process.env.OWNER_PHONE || '';
+
+// --- Clean up stale Chromium lock files from Docker volume ---
+function cleanStaleLocks(dir) {
+    if (!existsSync(dir)) return;
+    try {
+        const entries = readdirSync(dir);
+        for (const entry of entries) {
+            const fullPath = join(dir, entry);
+            if (entry === 'SingletonLock' || entry === 'SingletonSocket' || entry === 'SingletonCookie') {
+                unlinkSync(fullPath);
+                console.log(`🧹 Removed stale lock: ${fullPath}`);
+            }
+            try {
+                if (statSync(fullPath).isDirectory()) {
+                    cleanStaleLocks(fullPath);
+                }
+            } catch { /* skip */ }
+        }
+    } catch (err) {
+        console.error('⚠️ Lock cleanup error:', err.message);
+    }
+}
+
+cleanStaleLocks('data/session');
+console.log('🔓 Stale Chromium locks cleared');
 
 // --- WhatsApp Client Initialization ---
 const client = new Client({
@@ -25,6 +52,7 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--disable-gpu',
+            '--single-process',
         ],
     },
 });
