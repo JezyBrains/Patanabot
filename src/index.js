@@ -98,9 +98,9 @@ const CHECK_STOCK_TAG_REGEX = /\[CHECK_STOCK:\s*(.+?)\s*\]/;
 const COOLDOWN_MS = 5000;
 const lastMessageTime = new Map();
 
-// --- Escalation Relay: Active escalation queue ---
+// --- Escalation Relay: Active escalations (multi-customer) ---
 const MAX_ESCALATIONS_PER_CUSTOMER = 5;
-let activeEscalation = null; // { customerPhone, summary, timestamp }
+const activeEscalations = new Map(); // customerPhone → { summary, timestamp }
 
 // --- Stock Check Queue: Owner has 9 min (3 reminders × 3 min) to reply ---
 const stockCheckQueue = new Map(); // customerPhone → { item, reminders, timer, chatId }
@@ -266,65 +266,94 @@ client.on('message', async (message) => {
 
                     // --- Owner reply: NDIYO/HAPANA for stock check ---
                 } else if (stockCheckQueue.size > 0 && (upper === 'NDIYO' || upper === 'HAPANA')) {
-                    // Get the most recent stock check
-                    const [customerPhone, check] = [...stockCheckQueue.entries()].pop();
+                    // Try to extract customer from quoted message or use most recent
+                    let targetPhone = null;
+                    if (message.hasQuotedMsg) {
+                        try {
+                            const quoted = await message.getQuotedMessage();
+                            const phoneMatch = quoted.body.match(/\+(\d{12})/);
+                            if (phoneMatch) targetPhone = phoneMatch[1];
+                        } catch { }
+                    }
+                    if (!targetPhone) targetPhone = [...stockCheckQueue.keys()].pop();
+
+                    const check = stockCheckQueue.get(targetPhone);
+                    if (!check) {
+                        await message.reply('❌ Hakuna stock check inayosubiri.');
+                        return;
+                    }
 
                     if (upper === 'NDIYO') {
-                        clearStockCheck(customerPhone);
+                        clearStockCheck(targetPhone);
                         const confirmResponse = await generateResponse(
-                            customerPhone,
+                            targetPhone,
                             `🔑 MAELEKEZO YA BOSS: Tumeiconfirm bidhaa "${check.item}" ipo! Mwambie mteja tuna na mpe bei.`
                         );
                         let clean = confirmResponse.replace(ALERT_TAG_REGEX, '').replace(CHECK_STOCK_TAG_REGEX, '').trim();
-                        await client.sendMessage(`${customerPhone}@c.us`, clean);
-                        await message.reply(`✅ Nimemsemesha mteja ${customerPhone} — "${check.item}" confirmed!`);
+                        await client.sendMessage(`${targetPhone}@c.us`, clean);
+                        await message.reply(`✅ Mteja ${targetPhone} — "${check.item}" confirmed!`);
                     } else {
-                        clearStockCheck(customerPhone);
+                        clearStockCheck(targetPhone);
                         const oosResponse = await generateResponse(
-                            customerPhone,
+                            targetPhone,
                             `❌ BIDHAA HAINA: ${check.item}. Pendekeza mbadala bora kwa mteja.`
                         );
                         let clean = oosResponse.replace(OOS_TAG_REGEX, '').replace(CHECK_STOCK_TAG_REGEX, '').trim();
-                        await client.sendMessage(`${customerPhone}@c.us`, clean);
+                        await client.sendMessage(`${targetPhone}@c.us`, clean);
                         saveMissedOpportunity(check.item);
-                        await message.reply(`📉 Nimempa mteja ${customerPhone} alternatives kwa "${check.item}".`);
+                        await message.reply(`📉 Mteja ${targetPhone} — alternatives kwa "${check.item}" zimetumwa.`);
                     }
 
-                    // --- Owner reply to active escalation → relay to customer ---
-                } else if (activeEscalation) {
-                    const { customerPhone } = activeEscalation;
-
-                    const guidance = `🔑 MAELEKEZO YA BOSS: ${text}`;
-                    const aiResponse = await generateResponse(customerPhone, guidance);
-
-                    let cleanResponse = aiResponse;
-                    const alertMatch2 = cleanResponse.match(ALERT_TAG_REGEX);
-                    if (alertMatch2) cleanResponse = cleanResponse.replace(alertMatch2[0], '').trim();
-                    cleanResponse = cleanResponse.replace(CHECK_STOCK_TAG_REGEX, '').trim();
-
-                    await client.sendMessage(`${customerPhone}@c.us`, cleanResponse);
-                    await message.reply(`✅ Nimemfikishia mteja ${customerPhone}:\n\n"${cleanResponse.substring(0, 200)}..."`);
-
-                    console.log(`🔑 [BOSS GUIDANCE] ${customerPhone} ← "${text}"`);
-                    activeEscalation = null;
-
-                    // --- Help menu ---
+                    // --- Owner reply: route guidance to customer via quote-reply ---
                 } else {
-                    await message.reply(
-                        '🫡 *PatanaBot Admin Panel*\n\n' +
-                        '*Amri:*\n' +
-                        '📦 *STOO:* _Ongeza/badili bidhaa_\n' +
-                        '📦 *UPDATE:* _Sasisha bei_\n' +
-                        '⏸️ *ZIMA:* _Zima bot kwa mteja_\n' +
-                        '▶️ *WASHA:* _Washa bot (WOTE/namba)_\n' +
-                        '⭐ *RATE:* _Ratia mteja (1-5)_\n' +
-                        '👤 *PROFILE:* _Profaili ya mteja_\n\n' +
-                        '💡 Alerts + Stock Checks zinajibu automatic!\n' +
-                        '_NDIYO/HAPANA_ kujibu stock check\n\n' +
-                        'Mfano:\n' +
-                        '_STOO: Ongeza TV 32, bei 300K mwisho 280K_\n' +
-                        '_RATE: 255743726397 4_'
-                    );
+                    // Try to extract customer phone from quoted alert message
+                    let targetPhone = null;
+                    if (message.hasQuotedMsg) {
+                        try {
+                            const quoted = await message.getQuotedMessage();
+                            const phoneMatch = quoted.body.match(/\+(\d{12})/);
+                            if (phoneMatch) targetPhone = phoneMatch[1];
+                        } catch { }
+                    }
+
+                    // Fall back to most recent active escalation
+                    if (!targetPhone && activeEscalations.size > 0) {
+                        targetPhone = [...activeEscalations.keys()].pop();
+                    }
+
+                    if (targetPhone && (activeEscalations.has(targetPhone) || stockCheckQueue.has(targetPhone))) {
+                        const guidance = `🔑 MAELEKEZO YA BOSS: ${text}`;
+                        const aiResponse = await generateResponse(targetPhone, guidance);
+
+                        let cleanResponse = aiResponse
+                            .replace(ALERT_TAG_REGEX, '')
+                            .replace(CHECK_STOCK_TAG_REGEX, '')
+                            .replace(OOS_TAG_REGEX, '')
+                            .trim();
+
+                        await client.sendMessage(`${targetPhone}@c.us`, cleanResponse);
+                        await message.reply(`✅ Mteja ${targetPhone}:\n\n"${cleanResponse.substring(0, 150)}..."`);
+                        activeEscalations.delete(targetPhone);
+                        console.log(`🔑 [BOSS → ${targetPhone}] "${text.substring(0, 50)}"`);
+                    } else {
+                        // No active escalation — show help
+                        await message.reply(
+                            '🫡 *PatanaBot Admin Panel*\n\n' +
+                            '*Amri:*\n' +
+                            '📦 *BIDHAA* — _Angalia stoo_\n' +
+                            '📦 *STOO:* _Ongeza/badili bidhaa_\n' +
+                            '📦 *UPDATE:* _Sasisha bei_\n' +
+                            '⏸️ *ZIMA:* _Zima bot kwa mteja_\n' +
+                            '▶️ *WASHA:* _Washa bot (WOTE/namba)_\n' +
+                            '⭐ *RATE:* _Ratia mteja (1-5)_\n' +
+                            '👤 *PROFILE:* _Profaili ya mteja_\n\n' +
+                            '💡 *Reply:* Bonyeza alert/stock check → jibu nayo!\n' +
+                            '_NDIYO/HAPANA_ kujibu stock check\n\n' +
+                            'Mfano:\n' +
+                            '_STOO: Futa Nokia 235_\n' +
+                            '_UPDATE: Samsung S24 bei mpya 1.3M mwisho 1.1M_'
+                        );
+                    }
                 }
             }
 
@@ -392,16 +421,14 @@ client.on('message', async (message) => {
             const escCount = incrementEscalation(userPhone);
 
             if (escCount <= MAX_ESCALATIONS_PER_CUSTOMER && OWNER_PHONE) {
-                // Store active escalation so owner's next reply routes to this customer
-                activeEscalation = { customerPhone: userPhone, summary, timestamp: Date.now() };
+                activeEscalations.set(userPhone, { summary, timestamp: Date.now() });
 
                 await client.sendMessage(
                     OWNER_PHONE,
                     `🚨 *ALERT #${escCount}/5 — Mteja +${userPhone}*\n${profile.label}\n\n` +
                     `📋 *Tatizo:* ${summary}\n` +
-                    `💬 *Meseji yake:* "${text || '[Media]'}"\n\n` +
-                    `💡 *Jibu hapa na maelekezo yako* — nitamfikishia mteja moja kwa moja!\n` +
-                    `Mfano: _"Mpe bei ya 1M special offer"_`
+                    `💬 *Meseji:* "${text || '[Media]'}"\n\n` +
+                    `💡 *Reply hii meseji* na maelekezo yako!`
                 );
 
                 console.log(`🚨 [ALERT #${escCount}] ${userPhone}: ${summary}`);
