@@ -98,31 +98,6 @@ const ORDER_TAG_REGEX = /\[ORDER_CLOSED:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\]/
 const ESCALATE_TAG_REGEX = /\[ESCALATE\]/;
 const OOS_TAG_REGEX = /\[OUT_OF_STOCK:\s*(.+?)\s*\]/;
 
-// ============================================================
-// HUMAN OVERRIDE: Owner manually replies to a customer from the
-// shop's WhatsApp → bot steps aside for that customer.
-// Skips bot-generated replies and admin conversations.
-// ============================================================
-client.on('message_create', async (message) => {
-    try {
-        if (!message.fromMe) return;
-        if (message.to.includes('@g.us')) return;
-
-        // Don't pause for messages sent TO the owner (admin/test convos)
-        if (message.to === OWNER_PHONE) return;
-
-        // Don't pause for empty/media-only messages
-        if (!message.body || message.body.trim().length === 0) return;
-
-        const customerChatId = message.to;
-        const customerPhone = customerChatId.replace('@c.us', '');
-
-        pauseBot(customerPhone);
-        console.log(`👤 [OWNER TAKEOVER] Bot paused for ${customerPhone} — owner is handling directly`);
-    } catch (error) {
-        console.error('❌ Human override error:', error.message);
-    }
-});
 
 // ============================================================
 // MAIN MESSAGE HANDLER (Incoming Messages)
@@ -175,19 +150,25 @@ client.on('message', async (message) => {
                         console.error('❌ Text inventory update error:', error.message);
                         await message.reply('❌ Samahani Boss, mtandao umesumbua au sikuelewa vizuri maelekezo. Jaribu tena.');
                     }
+                } else if (text.toUpperCase().startsWith('ZIMA:')) {
+                    // ZIMA: Pause bot for a specific customer (owner takes over)
+                    const target = text.substring(5).trim();
+                    if (target) {
+                        pauseBot(target);
+                        await message.reply(`⏸️ TAYARI! Nimejizima kwa mteja ${target}. Sasa unaongea naye mwenyewe Boss!`);
+                    } else {
+                        await message.reply('❌ Tafadhali taja namba ya mteja. Mfano: _ZIMA: 255743726397_');
+                    }
                 } else if (text.toUpperCase().startsWith('WASHA:')) {
                     // WASHA: Unpause bot for a customer or all customers
                     const target = text.substring(6).trim();
 
-                    if (target.toUpperCase() === 'WOTE' || target.toUpperCase() === 'ALL') {
+                    if (!target || target.toUpperCase() === 'WOTE' || target.toUpperCase() === 'ALL') {
                         const count = resumeAllBots();
                         await message.reply(`▶️ TAYARI! Nimewasha bot kwa wateja WOTE (${count} wamerudishwa). Nipo kazini tena!`);
-                    } else if (target) {
+                    } else {
                         resumeBot(target);
                         await message.reply(`▶️ TAYARI! Nimewasha bot kwa mteja ${target}. Nitaanza kumjibu tena!`);
-                    } else {
-                        const count = resumeAllBots();
-                        await message.reply(`▶️ TAYARI! Nimewasha bot kwa wateja WOTE (${count} wamerudishwa). Nipo kazini tena!`);
                     }
                 } else {
                     // Owner texts normally without trigger word — show help
@@ -196,12 +177,12 @@ client.on('message', async (message) => {
                         '*Amri za Admin:*\n' +
                         '📦 *STOO:* _Ongeza/badili bidhaa_\n' +
                         '📦 *UPDATE:* _Sasisha bei_\n' +
+                        '⏸️ *ZIMA:* _Zima bot kwa mteja (uchukue wewe)_\n' +
                         '▶️ *WASHA:* _Washa bot (WOTE au namba)_\n\n' +
                         'Mfano:\n' +
                         '_STOO: Ongeza TV nchi 32, bei 300K mwisho 280K_\n' +
-                        '_UPDATE: Shusha bei ya AirPods kwa 5K_\n' +
-                        '_WASHA: WOTE_ (washa bot kwa wateja wote)\n' +
-                        '_WASHA: 255743726397_ (washa kwa mteja mmoja)\n\n' +
+                        '_ZIMA: 255743726397_ (uzime bot, uongee mwenyewe)\n' +
+                        '_WASHA: WOTE_ (washa bot kwa wateja wote)\n\n' +
                         'Au tuma Excel file 📋'
                     );
                 }
