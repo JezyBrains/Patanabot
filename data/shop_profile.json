@@ -1,0 +1,175 @@
+{
+    "shop_name": "Kariakoo Tech Hub",
+    "payment_info": "M-Pesa: 0686479877 (Jina: Kariakoo Tech Hub). Pia tunapokea cash.",
+    "delivery_policy": "Dar es Salaam: TZS 5,000 (Bodaboda, siku hiyo hiyo). Mikoani: Tunatuma kwa basi, gharama kulingana na eneo.",
+    "inventory": [
+        {
+            "item": "Samsung Galaxy S24",
+            "condition": "Brand New, 256GB, Black",
+            "public_price": 1400000,
+            "secret_floor_price": 1250000
+        },
+        {
+            "item": "Samsung Galaxy S23",
+            "condition": "Brand New, 512GB, Sealed",
+            "public_price": 1250000,
+            "secret_floor_price": 1100000
+        },
+        {
+            "item": "Samsung Galaxy Z Flip4",
+            "condition": "Brand New, 128GB, Black",
+            "public_price": 800000,
+            "secret_floor_price": 700000
+        },
+        {
+            "item": "Samsung Galaxy S21 Ultra 5G",
+            "condition": "Brand New, 128GB, Sealed",
+            "public_price": 750000,
+            "secret_floor_price": 650000
+        },
+        {
+            "item": "Apple iPhone 15",
+            "condition": "Brand New, 256GB, Sealed",
+            "public_price": 2000000,
+            "secret_floor_price": 1800000
+        },
+        {
+            "item": "Apple iPhone 14 Pro",
+            "condition": "Brand New, 128GB, Rose Gold",
+            "public_price": 1700000,
+            "secret_floor_price": 1500000
+        },
+        {
+            "item": "Apple iPhone 14",
+            "condition": "Brand New, 128GB, Sealed",
+            "public_price": 1350000,
+            "secret_floor_price": 1200000
+        },
+        {
+            "item": "Apple iPhone 13 Pro Max",
+            "condition": "Brand New, 256GB, Sealed",
+            "public_price": 1650000,
+            "secret_floor_price": 1450000
+        },
+        {
+            "item": "Google Pixel 9",
+            "condition": "Brand New, 128GB, Sealed",
+            "public_price": 1700000,
+            "secret_floor_price": 1500000
+        },
+        {
+            "item": "Google Pixel 9 Pro",
+            "condition": "Refurbished A++, 128GB, Black",
+            "public_price": 2150000,
+            "secret_floor_price": 1900000
+        },
+        {
+            "item": "Google Pixel 9 Pro XL",
+            "condition": "Brand New, 256GB, Warranty 1yr",
+            "public_price": 2400000,
+            "secret_floor_price": 2100000
+        },
+        {
+            "item": "Nokia 235 4G",
+            "condition": "Brand New, Sealed",
+            "public_price": 200000,
+            "secret_floor_price": 170000
+        },
+        {
+            "item": "Samsung Galaxy Tab A11",
+            "condition": "Brand New, 64GB, 8GB RAM",
+            "public_price": 470000,
+            "secret_floor_price": 400000
+        },
+        {
+            "item": "Samsung Galaxy Tab S10 Ultra",
+            "condition": "Brand New, 512GB, 5G",
+            "public_price": 3150000,
+            "secret_floor_price": 2800000
+        },
+        {
+            "item": "Modio M39 Tablet",
+            "condition": "Brand New, 512GB, Simcard, Android",
+            "public_price": 300000,
+            "secret_floor_price": 250000
+        },
+        {
+            "item": "Modio M34 Tablet",
+            "condition": "Brand New, 512GB, 8000mAh, Android",
+            "public_price": 300000,
+            "secret_floor_price": 250000
+        },
+        {
+            "item": "Atouch X19 Pro Tablet",
+            "condition": "Brand New, 256GB, 10 inch, 10000mAh, Android",
+            "public_price": 320000,
+            "secret_floor_price": 270000
+        },
+        {
+            "item": "Atouch SE Max Tablet",
+            "condition": "Brand New, 512GB, 16GB RAM, Android",
+            "public_price": 350000,
+            "secret_floor_price": 300000
+        },
+        {
+            "item": "Apple iPad 10th Gen",
+            "condition": "Brand New, 256GB, WiFi Only",
+            "public_price": 1300000,
+            "secret_floor_price": 1150000
+        },
+        {
+            "item": "AirPods Pro 2nd Gen",
+            "condition": "Brand New, Sealed",
+            "public_price": 70000,
+            "secret_floor_price": 50000
+        },
+        {
+            "item": "AirPods Max",
+            "condition": "Brand New, Multiple Colors",
+            "public_price": 120000,
+            "secret_floor_price": 95000
+        },
+        {
+            "item": "Samsung Galaxy Buds Pro",
+            "condition": "Brand New, Sealed",
+            "public_price": 50000,
+            "secret_floor_price": 35000
+        },
+        {
+            "item": "JBL Tune S25 Buds",
+            "condition": "Brand New, Wireless",
+            "public_price": 50000,
+            "secret_floor_price": 35000
+        },
+        {
+            "item": "JBL Live 770NC Headphones",
+            "condition": "Brand New, Over-ear, Noise Cancelling",
+            "public_price": 400000,
+            "secret_floor_price": 350000
+        },
+        {
+            "item": "JBL Tune 730NC Headphones",
+            "condition": "Brand New, Wireless, 76hrs Battery",
+            "public_price": 220000,
+            "secret_floor_price": 180000
+        },
+        {
+            "item": "Oraimo Earbuds",
+            "condition": "Brand New, Original",
+            "public_price": 35000,
+            "secret_floor_price": 25000
+        },
+        {
+            "item": "Sony WF-1000 Earbuds",
+            "condition": "Brand New, Long Battery Life",
+            "public_price": 60000,
+            "secret_floor_price": 45000
+        },
+        {
+            "item": "Anker Soundcore R60i NC",
+            "condition": "Brand New, Noise Cancelling, Wireless",
+            "public_price": 180000,
+            "secret_floor_price": 150000
+        }
+    ]
+}
