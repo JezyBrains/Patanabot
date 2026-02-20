@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { existsSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { generateResponse } from './ai.js';
-import { saveOrder, pauseBot, isBotActive, saveMissedOpportunity, getDailySummary } from './db.js';
+import { saveOrder, pauseBot, isBotActive, resumeBot, resumeAllBots, saveMissedOpportunity, getDailySummary } from './db.js';
 import { shopName } from './shop.js';
 import { updateInventoryFromExcel } from './inventory.js';
 import { updateInventoryFromText } from './admin.js';
@@ -169,16 +169,34 @@ client.on('message', async (message) => {
                         console.error('❌ Text inventory update error:', error.message);
                         await message.reply('❌ Samahani Boss, mtandao umesumbua au sikuelewa vizuri maelekezo. Jaribu tena.');
                     }
+                } else if (text.toUpperCase().startsWith('WASHA:')) {
+                    // WASHA: Unpause bot for a customer or all customers
+                    const target = text.substring(6).trim();
+
+                    if (target.toUpperCase() === 'WOTE' || target.toUpperCase() === 'ALL') {
+                        const count = resumeAllBots();
+                        await message.reply(`▶️ TAYARI! Nimewasha bot kwa wateja WOTE (${count} wamerudishwa). Nipo kazini tena!`);
+                    } else if (target) {
+                        resumeBot(target);
+                        await message.reply(`▶️ TAYARI! Nimewasha bot kwa mteja ${target}. Nitaanza kumjibu tena!`);
+                    } else {
+                        const count = resumeAllBots();
+                        await message.reply(`▶️ TAYARI! Nimewasha bot kwa wateja WOTE (${count} wamerudishwa). Nipo kazini tena!`);
+                    }
                 } else {
                     // Owner texts normally without trigger word — show help
                     await message.reply(
                         '🫡 Habari Boss! Mimi ni PatanaBot.\n\n' +
-                        'Kama unataka kubadili stoo au bei kwa meseji, anza na neno *STOO:* au *UPDATE:*\n\n' +
+                        '*Amri za Admin:*\n' +
+                        '📦 *STOO:* _Ongeza/badili bidhaa_\n' +
+                        '📦 *UPDATE:* _Sasisha bei_\n' +
+                        '▶️ *WASHA:* _Washa bot (WOTE au namba)_\n\n' +
                         'Mfano:\n' +
-                        '_STOO: Ongeza TV nchi 32 mpya, bei 300K mwisho 280K_\n' +
+                        '_STOO: Ongeza TV nchi 32, bei 300K mwisho 280K_\n' +
                         '_UPDATE: Shusha bei ya AirPods kwa 5K_\n' +
-                        '_STOO: Futa iPhone 13 kutoka stoo_\n\n' +
-                        'Au tuma Excel file yenye column: Bidhaa, Hali, Bei_Kawaida, Bei_Mwisho 📋'
+                        '_WASHA: WOTE_ (washa bot kwa wateja wote)\n' +
+                        '_WASHA: 255743726397_ (washa kwa mteja mmoja)\n\n' +
+                        'Au tuma Excel file 📋'
                     );
                 }
             }

@@ -117,6 +117,25 @@ export function isBotActive(phone) {
   return row.bot_paused === 0;
 }
 
+/**
+ * Resume the bot for a specific customer
+ * @param {string} phone - Customer phone number
+ */
+export function resumeBot(phone) {
+  db.prepare('UPDATE customers SET bot_paused = 0 WHERE phone = ?').run(phone);
+  console.log(`▶️ BOT RESUMED for customer: ${phone}`);
+}
+
+/**
+ * Resume the bot for ALL customers (unpause everyone)
+ * @returns {number} Number of customers unpaused
+ */
+export function resumeAllBots() {
+  const result = db.prepare('UPDATE customers SET bot_paused = 0 WHERE bot_paused = 1').run();
+  console.log(`▶️ BOT RESUMED for ALL customers (${result.changes} unpaused)`);
+  return result.changes;
+}
+
 // --- Enterprise: Missed Opportunities ---
 
 /**
