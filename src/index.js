@@ -96,7 +96,7 @@ client.on('disconnected', (reason) => { console.log('🔌 Disconnected:', reason
 const ORDER_TAG_REGEX = /\[ORDER_CLOSED:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\]/;
 const PENDING_PAYMENT_TAG_REGEX = /\[PENDING_PAYMENT:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\]/;
 const RECEIPT_TAG_REGEX = /\[RECEIPT_UPLOADED\]/;
-const SEND_IMAGE_TAG_REGEX = /\[SEND_IMAGE:\s*([a-zA-Z0-9_-]+)\s*\]/;
+const SEND_IMAGE_TAG_REGEX = /\[SEND_IMAGE:\s*([^\]]+)\]/;
 const ALERT_TAG_REGEX = /\[ALERT:\s*(.+?)\s*\]/;
 const OOS_TAG_REGEX = /\[OUT_OF_STOCK:\s*(.+?)\s*\]/;
 const CHECK_STOCK_TAG_REGEX = /\[CHECK_STOCK:\s*(.+?)\s*\]/;
@@ -156,7 +156,10 @@ function startStockCheck(customerPhone, item, chatId) {
                     // Owner didn't reply — tell customer OOS via AI
                     const oosResponse = await generateResponse(
                         customerPhone,
-                        `❌ BIDHAA HAINA: ${item}. Pendekeza mbadala bora kwa mteja.`
+                        `❌ BIDHAA HAINA: ${item}. Boss hajajibu kwa muda.
+SHERIA KALI: Kama kuna bidhaa nyingine katika CATEGORY ILE ILE (simu kwa simu, laptop kwa laptop) inayolingana na bajeti ya mteja, mpe ofa kwa heshima.
+KAMA HAKUNA bidhaa kwenye category hiyo inayotosha bajeti yake, MUAGE KWA HESHIMA — "Samahani boss, kwa sasa hii haipatikani. Ukihitaji kitu kingine nipo hapa!"
+ONYO KALI: USIMPE bidhaa tofauti (earphones/charger kwa mtu anayetaka simu = DHARAU!)`
                     );
                     let cleanResponse = oosResponse.replace(OOS_TAG_REGEX, '').replace(CHECK_STOCK_TAG_REGEX, '').trim();
                     await client.sendMessage(chatId, cleanResponse);
@@ -755,10 +758,12 @@ client.on('message', async (message) => {
         // --- SEND IMAGE Interceptor ---
         const imgMatch = aiResponse.match(SEND_IMAGE_TAG_REGEX);
         if (imgMatch) {
-            const [fullTag, itemId] = imgMatch;
+            const [fullTag, rawId] = imgMatch;
             aiResponse = aiResponse.replace(SEND_IMAGE_TAG_REGEX, '').trim();
 
-            const item = getItemById(itemId);
+            // Try exact ID first, then fuzzy name match (handles AI using product names)
+            const itemId = rawId.trim();
+            const item = getItemById(itemId) || findItemByName(itemId);
             // Get images list (support both old image_file string and new images[] array)
             const images = Array.isArray(item?.images) ? item.images
                 : (item?.image_file ? [item.image_file] : []);
