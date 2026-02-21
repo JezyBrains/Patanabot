@@ -17,7 +17,7 @@ import { shopName, getInventoryList, deductStock, restoreStock, getItemById, get
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-import { updateInventoryFromExcel } from './inventory.js';
+import { updateInventoryFromExcel, generateExcelTemplate, bulkImportFromText } from './inventory.js';
 import { updateInventoryFromText } from './admin.js';
 
 dotenv.config();
@@ -216,11 +216,11 @@ client.on('message', async (message) => {
                 if (isExcel) {
                     await message.reply('⏳ Boss, naipokea listi yako mpya ya bidhaa...');
                     try {
-                        const count = updateInventoryFromExcel(media.data);
-                        await message.reply(`✅ TAYARI! Bidhaa ${count} zimesasishwa! 📦🔥`);
+                        const result = updateInventoryFromExcel(media.data);
+                        await message.reply(`✅ Excel imesomwa! 📦\n\n📥 Mpya: ${result.added}\n🔄 Zimesasishwa: ${result.updated}\n📦 Jumla: ${result.total}`);
                     } catch (err) {
                         console.error('❌ Excel error:', err.message);
-                        await message.reply(`❌ Excel error: ${err.message}`);
+                        await message.reply(`❌ ${err.message}`);
                     }
 
                     // --- Owner IMAGE: Quick-add OR add photo to existing ---
@@ -321,6 +321,37 @@ client.on('message', async (message) => {
                 if (upper === 'BIDHAA' || upper === 'STOO' || upper === 'LIST') {
                     await message.reply(getInventoryList());
 
+                    // --- TEMPLATE: Send Excel template ---
+                } else if (upper === 'TEMPLATE' || upper === 'FOMU') {
+                    const templateBuf = generateExcelTemplate();
+                    const media = new MessageMedia('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', templateBuf.toString('base64'), 'PatanaBot_Bidhaa_Template.xlsx');
+                    await client.sendMessage(message.from, media, {
+                        caption: `📋 *Excel Template ya Bidhaa*\n\nJaza na utume hapa. Columns:\n• *Bidhaa* — Jina la bidhaa\n• *Brand* — Samsung, Apple, JBL...\n• *Tier* — Premium, Mid-Range, Budget\n• *Hali* — Brand New, Used, 128GB...\n• *Bei_Kununua* — Bei yako ya kununua\n• *Bei_Kuuza* — Bei ya kuuzia mteja\n• *Stock* — Kiasi kilichopo\n• *Features* — Sifa (kamera, betri...)\n\n_Futa mifano na weka bidhaa zako!_`
+                    });
+
+                    // --- ONGEZA: Bulk text import ---
+                } else if (upper.startsWith('ONGEZA:')) {
+                    const body = text.substring(7).trim();
+                    if (!body) {
+                        await message.reply(
+                            `📝 *Ongeza bidhaa nyingi:*\n\n` +
+                            `Andika kila bidhaa mstari wake:\n` +
+                            `_ongeza:_\n` +
+                            `_Samsung A54, 480000, 5, Brand New 128GB_\n` +
+                            `_iPhone 11, 300000, 1, Used 64GB_\n` +
+                            `_Oraimo Earbuds, 25000, 10, Brand New_\n\n` +
+                            `Format: _jina, bei ya kununua, stock, hali_`
+                        );
+                        return;
+                    }
+                    try {
+                        const result = bulkImportFromText(body);
+                        await message.reply(`✅ Bidhaa zimesasishwa! 📦\n\n📥 Mpya: ${result.added}\n🔄 Zimesasishwa: ${result.updated}\n📦 Jumla: ${result.total}`);
+                    } catch (err) {
+                        console.error('❌ Bulk import error:', err.message);
+                        await message.reply(`❌ ${err.message}`);
+                    }
+
                     // --- STOO / UPDATE: Inventory management ---
                 } else if (upper.startsWith('STOO:') || upper.startsWith('UPDATE:')) {
                     await message.reply('⏳ Nasasisha stoo...');
@@ -362,9 +393,11 @@ client.on('message', async (message) => {
                         `📋 *AMRI ZA BOSS*\n${'━'.repeat(30)}\n\n` +
                         `📦 *bidhaa* — Ona stoo yote\n` +
                         `📝 *stoo:* ongeza/futa bidhaa\n` +
+                        `📥 *ongeza:* Ongeza bidhaa nyingi (text)\n` +
+                        `📋 *template* — Pata Excel template\n` +
                         `💰 *malipo:* Weka M-Pesa/bank\n` +
                         `📋 *sera:* Lipa kwanza/baadaye\n` +
-                        `📸 *picha:* (tuma picha + caption)\n` +
+                        `📸 Tuma picha + jina,bei,stock,hali\n` +
                         `⏸️ *zima:* Simamisha bot kwa mteja\n` +
                         `▶️ *washa:* Rudisha bot\n` +
                         `⭐ *rate:* Pima mteja (1-5)\n` +
