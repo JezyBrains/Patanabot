@@ -7,12 +7,49 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// --- Tiered Model System ---
+const FLASH_MODEL = process.env.FLASH_MODEL || 'gemini-2.0-flash';
+const PRO_MODEL = process.env.PRO_MODEL || 'gemini-2.5-pro';
+
+// Keywords/patterns that trigger the Pro model (complex reasoning needed)
+const PRO_TRIGGERS = [
+    /\b(bei|price|ghali|cheap|discount|punguza|ofa|offer|negotiat)/i,
+    /\b(sina\s*(pesa|hela)|budget|bajeti|laki|mil\s*\d|haitoshi)/i,
+    /\b(sitaki|hapana|nafikiri|ngumu|bado|expensive|kubwa sana)/i,
+    /\b(mbadala|alternative|nyingine|nipe.*ya|tafuta.*bei)/i,
+    /\b(order|nunua|lipa|malipo|delivery|uko wapi|location)/i,
+    /\b(200k|300k|400k|500k|800k|\d+k\b)/i,
+    /\b(nina\s+\d|nataka.*kwa|nipe.*za)/i,
+    /❌\s*BIDHAA\s*HAINA/i, // OOS injection from timeout
+];
+
+/**
+ * Determine which model to use based on message content and context.
+ * Returns 'pro' for complex negotiation, 'flash' for everything else.
+ */
+function selectModel(prompt, history) {
+    // System-injected messages (OOS, stock check) → always Pro
+    if (prompt.includes('BIDHAA HAINA') || prompt.includes('SHERIA KALI')) return 'pro';
+
+    // Check if conversation is in negotiation phase (recent history has price talk)
+    const recentHistory = history.slice(-4);
+    const recentText = recentHistory.map(m => m.parts?.[0]?.text || '').join(' ');
+    const combinedText = prompt + ' ' + recentText;
+
+    for (const pattern of PRO_TRIGGERS) {
+        if (pattern.test(combinedText)) return 'pro';
+    }
+
+    return 'flash';
+}
+
 /**
  * Build the system instruction dynamically with fresh inventory data.
  * Called on every request to ensure Excel updates are reflected immediately.
  */
 function buildSystemInstruction() {
     const shopContext = getShopContext();
+
 
     return `Wewe ni PatanaBot, Muuzaji Mkuu wa duka hili. Lugha yako ni Swanglish ya biashara.
 MITA mteja "Boss" au "Mkuu" kila wakati. USITUMIE maneno ya jinsia (Bro, Kaka, Dada) ISIPOKUWA mteja amekuambia jina lake — hapo mwite kwa jina.
@@ -172,12 +209,6 @@ ${shopContext}`;
  */
 export async function generateResponse(userPhone, prompt, media = null) {
     try {
-        // Build model with FRESH inventory on every call
-        const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash',
-            systemInstruction: buildSystemInstruction(),
-        });
-
         // Fetch existing chat history from SQLite
         let history = getHistory(userPhone);
 
@@ -200,6 +231,18 @@ export async function generateResponse(userPhone, prompt, media = null) {
         if (cleanHistory.length > 0 && cleanHistory[cleanHistory.length - 1].role === 'user') {
             cleanHistory.pop();
         }
+
+        // Smart model selection based on message + conversation context
+        const tier = selectModel(prompt, cleanHistory);
+        const modelName = tier === 'pro' ? PRO_MODEL : FLASH_MODEL;
+
+        // Build model with FRESH inventory on every call
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            systemInstruction: buildSystemInstruction(),
+        });
+
+        console.log(`🧠 [${tier.toUpperCase()}] ${modelName} → ${userPhone.slice(0, 6)}...`);
 
         // Start chat with sanitized history
         const chat = model.startChat({
