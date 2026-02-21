@@ -195,14 +195,20 @@ client.on('message', async (message) => {
         if (message.from === 'status@broadcast') return; // skip status updates
         if (message.isStatus) return; // skip any status messages
         if (message.fromMe) return; // skip self-sent messages
+        if (message.type === 'e2e_notification' || message.type === 'notification_template') return;
+        if (message.type === 'protocol') return; // skip protocol messages
 
         // Dedup: WhatsApp sometimes fires same message twice
-        const msgId = message.id?._serialized || message.id?.id;
-        if (msgId && recentMessageIds.has(msgId)) return;
-        if (msgId) {
-            recentMessageIds.add(msgId);
-            setTimeout(() => recentMessageIds.delete(msgId), 10000); // cleanup after 10s
+        const msgId = message.id?._serialized || message.id?.id || `${message.from}_${message.timestamp}`;
+        if (recentMessageIds.has(msgId)) {
+            console.log(`🔁 [DEDUP] Dropped duplicate: ${msgId.slice(-12)} from ${message.from.slice(0, 6)}`);
+            return;
         }
+        recentMessageIds.add(msgId);
+        setTimeout(() => recentMessageIds.delete(msgId), 15000);
+
+        // Debug: log every message that passes filters
+        console.log(`📨 [INTAKE] type=${message.type} from=${message.from.slice(0, 6)} hasMedia=${message.hasMedia} body="${(message.body || '').slice(0, 40)}"`);
 
         // ============================================================
         // OWNER ADMIN PANEL
@@ -621,6 +627,7 @@ client.on('message', async (message) => {
 
         const contact = await message.getContact();
         const userPhone = contact.number;
+        const chatKey = message.from; // Use message.from consistently (255xxx@c.us)
 
         // Check pause status
         if (!isBotActive(userPhone)) {
@@ -628,14 +635,17 @@ client.on('message', async (message) => {
             return;
         }
 
-        // Anti-spam rate limiter (exempt first message from a new customer)
+        // Anti-spam rate limiter
         const now = Date.now();
-        const lastTime = lastMessageTime.get(userPhone);
-        if (lastTime && (now - lastTime < COOLDOWN_MS)) {
-            console.log(`🛡️ [RATE LIMIT] ${userPhone} (too fast)`);
-            return;
+        const lastTime = lastMessageTime.get(chatKey);
+        if (lastTime) {
+            const elapsed = now - lastTime;
+            if (elapsed < COOLDOWN_MS) {
+                console.log(`🛡️ [RATE LIMIT] ${userPhone} — ${elapsed}ms since last msg (need ${COOLDOWN_MS}ms). Text: "${(message.body || '').slice(0, 30)}"`);
+                return;
+            }
         }
-        lastMessageTime.set(userPhone, now);
+        lastMessageTime.set(chatKey, now);
 
         // Anti-troll: check if customer is in cooldown
         const trollExpiry = trollCooldown.get(userPhone);
