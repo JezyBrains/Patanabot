@@ -112,6 +112,7 @@ let lastOwnerProduct = null;
 // --- Anti-Spam: Rate Limiter (per customer) ---
 const COOLDOWN_MS = 5000;
 const lastMessageTime = new Map();
+const recentMessageIds = new Set();
 
 // --- Anti-Troll: Auto-ignore time-wasters ---
 const trollCooldown = new Map(); // phone → expiry timestamp
@@ -193,6 +194,15 @@ client.on('message', async (message) => {
         if (message.from.includes('@broadcast')) return; // skip broadcasts
         if (message.from === 'status@broadcast') return; // skip status updates
         if (message.isStatus) return; // skip any status messages
+        if (message.fromMe) return; // skip self-sent messages
+
+        // Dedup: WhatsApp sometimes fires same message twice
+        const msgId = message.id?._serialized || message.id?.id;
+        if (msgId && recentMessageIds.has(msgId)) return;
+        if (msgId) {
+            recentMessageIds.add(msgId);
+            setTimeout(() => recentMessageIds.delete(msgId), 10000); // cleanup after 10s
+        }
 
         // ============================================================
         // OWNER ADMIN PANEL
