@@ -798,25 +798,30 @@ client.on('message', async (message) => {
             }
         }
 
-        // --- SEND IMAGE Interceptor ---
-        const imgMatch = aiResponse.match(SEND_IMAGE_TAG_REGEX);
-        if (imgMatch) {
-            const [fullTag, rawId] = imgMatch;
-            aiResponse = aiResponse.replace(SEND_IMAGE_TAG_REGEX, '').trim();
+        // --- WhatsApp formatting cleanup (strip markdown that WhatsApp can't render) ---
+        aiResponse = aiResponse.replace(/\*\*(.+?)\*\*/g, '*$1*'); // **bold** → *bold*
+        aiResponse = aiResponse.replace(/^#+\s*/gm, '');           // Remove # headers
+        aiResponse = aiResponse.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // [text](url) → text
 
-            // Try exact ID first, then fuzzy name match (handles AI using product names)
-            const itemId = rawId.trim();
-            const item = getItemById(itemId) || findItemByName(itemId);
-            // Get images list (support both old image_file string and new images[] array)
-            const images = Array.isArray(item?.images) ? item.images
-                : (item?.image_file ? [item.image_file] : []);
+        // --- SEND IMAGE Interceptor (Global — catches ALL tags) ---
+        const imgRegexGlobal = /\[SEND_IMAGE:\s*([^\]]+)\]/gi;
+        const imgMatches = [...aiResponse.matchAll(imgRegexGlobal)];
 
-            if (images.length > 0) {
-                // Send text first
-                if (aiResponse.length > 0) {
-                    await message.reply(aiResponse);
-                }
-                // Send ALL product photos
+        // Strip ALL image tags from text BEFORE sending
+        aiResponse = aiResponse.replace(imgRegexGlobal, '').trim();
+
+        if (imgMatches.length > 0) {
+            // Send clean text first
+            if (aiResponse.length > 0) {
+                await message.reply(aiResponse);
+            }
+            // Send ALL product photos
+            for (const match of imgMatches) {
+                const rawId = match[1].trim();
+                const item = getItemById(rawId) || findItemByName(rawId);
+                const images = Array.isArray(item?.images) ? item.images
+                    : (item?.image_file ? [item.image_file] : []);
+
                 for (const imgFile of images) {
                     const imagePath = join(__dirname, '..', 'data', 'images', imgFile);
                     if (existsSync(imagePath)) {
@@ -824,9 +829,9 @@ client.on('message', async (message) => {
                         await client.sendMessage(message.from, media2);
                     }
                 }
-                console.log(`🖼️ [SEND IMAGE] ${images.length} photos → ${userPhone}`);
-                return;
             }
+            console.log(`🖼️ [SEND IMAGE] ${imgMatches.length} products → ${userPhone}`);
+            return;
         }
 
         // --- OUT OF STOCK Interceptor ---
