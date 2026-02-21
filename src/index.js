@@ -618,10 +618,10 @@ client.on('message', async (message) => {
             return;
         }
 
-        // Anti-spam rate limiter
+        // Anti-spam rate limiter (exempt first message from a new customer)
         const now = Date.now();
-        const lastTime = lastMessageTime.get(userPhone) || 0;
-        if (now - lastTime < COOLDOWN_MS) {
+        const lastTime = lastMessageTime.get(userPhone);
+        if (lastTime && (now - lastTime < COOLDOWN_MS)) {
             console.log(`🛡️ [RATE LIMIT] ${userPhone} (too fast)`);
             return;
         }
