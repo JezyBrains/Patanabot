@@ -663,15 +663,31 @@ client.on('message', async (message) => {
             return;
         }
 
-        // Download media if present
+        // Download media if present (with type/size validation)
         let media = null;
         const isVoiceNote = message.type === 'ptt' || message.type === 'audio';
+        const ALLOWED_MEDIA_TYPES = ['image', 'ptt', 'audio', 'sticker'];
+        const MAX_MEDIA_SIZE = 5 * 1024 * 1024; // 5MB
+
         if (message.hasMedia) {
-            try {
-                media = await message.downloadMedia();
-                console.log(`📎 [MEDIA] ${media.mimetype}${isVoiceNote ? ' 🎤 VOICE' : ''} from ${userPhone}`);
-            } catch (err) {
-                console.error(`❌ Media download failed for ${userPhone}:`, err.message);
+            // Type whitelist — reject videos, documents, etc.
+            if (!ALLOWED_MEDIA_TYPES.includes(message.type)) {
+                console.log(`🚫 [MEDIA BLOCKED] type=${message.type} from ${userPhone} — not allowed`);
+                await message.reply('Boss, ninapokea picha na voice notes tu. Video au documents siziwezi kusoma 🙏');
+            } else {
+                try {
+                    media = await message.downloadMedia();
+                    // Size check after download (WhatsApp doesn't expose size before)
+                    const mediaSize = media?.data ? Buffer.byteLength(media.data, 'base64') : 0;
+                    if (mediaSize > MAX_MEDIA_SIZE) {
+                        console.log(`🚫 [MEDIA TOO LARGE] ${(mediaSize / 1024 / 1024).toFixed(1)}MB from ${userPhone}`);
+                        media = null; // Discard — too large
+                    } else {
+                        console.log(`📎 [MEDIA] ${media.mimetype} ${(mediaSize / 1024).toFixed(0)}KB${isVoiceNote ? ' 🎤' : ''} from ${userPhone}`);
+                    }
+                } catch (err) {
+                    console.error(`❌ Media download failed for ${userPhone}:`, err.message);
+                }
             }
         }
 
