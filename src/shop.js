@@ -138,18 +138,28 @@ export function getItemById(itemId) {
  */
 export function findItemByName(query) {
     const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    return findItemInInventory(profile.inventory, query);
+}
+
+/**
+ * Pure logic for finding an item in inventory list.
+ * Extracted for easier testing without file I/O.
+ */
+export function findItemInInventory(inventory, query) {
     const q = query.toLowerCase().trim();
+    if (!q) return null;
+
     // Try exact ID first
-    const byId = profile.inventory.find(i => i.id === q);
+    const byId = inventory.find(i => i.id === q);
     if (byId) return byId;
     // Try exact name match
-    const byName = profile.inventory.find(i => i.item.toLowerCase() === q);
+    const byName = inventory.find(i => i.item.toLowerCase() === q);
     if (byName) return byName;
     // Try partial name match
-    const byPartial = profile.inventory.find(i => i.item.toLowerCase().includes(q));
+    const byPartial = inventory.find(i => i.item.toLowerCase().includes(q));
     if (byPartial) return byPartial;
     // Try partial ID match
-    return profile.inventory.find(i => i.id.includes(q)) || null;
+    return inventory.find(i => i.id.includes(q)) || null;
 }
 
 /**
