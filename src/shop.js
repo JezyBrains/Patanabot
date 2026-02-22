@@ -42,14 +42,14 @@ ensureProfile();
 // --- In-memory cache (avoids blocking readFileSync on every AI call) ---
 let _profileCache = null;
 
-function loadProfile() {
+export function loadProfile() {
     if (!_profileCache) {
         _profileCache = JSON.parse(readFileSync(profilePath, 'utf-8'));
     }
     return _profileCache;
 }
 
-function saveProfile(profile) {
+export function saveProfile(profile) {
     _profileCache = profile;
     writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
 }

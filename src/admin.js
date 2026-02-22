@@ -1,14 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { readFileSync, writeFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { loadProfile, saveProfile } from './shop.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const profilePath = join(__dirname, '..', 'data', 'shop_profile.json');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -27,8 +21,7 @@ const model = genAI.getGenerativeModel({
  * @returns {Promise<number>} New total item count
  */
 export async function updateInventoryFromText(ownerText) {
-    // Read current shop profile
-    const shopData = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const shopData = loadProfile();
     const currentInventory = shopData.inventory;
 
     const prompt = `Wewe ni mfumo wa database wa duka. Hii ni orodha ya stoo ya sasa (Current Inventory):
@@ -58,10 +51,10 @@ Usibadilishe bidhaa ambazo mmiliki hakuzitaja. Weka bidhaa zote za zamani na mpy
         throw new Error('Gemini did not return a valid inventory array');
     }
 
-    // Read fresh and update
-    const freshShopData = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    // Update via cached helper
+    const freshShopData = loadProfile();
     freshShopData.inventory = newInventory;
-    writeFileSync(profilePath, JSON.stringify(freshShopData, null, 2), 'utf-8');
+    saveProfile(freshShopData);
 
     console.log(`📦 INVENTORY UPDATED VIA TEXT: ${newInventory.length} items total`);
     newInventory.forEach(item => {
