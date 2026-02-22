@@ -61,8 +61,8 @@ export function getShopContext() {
         context += `• [ID: ${item.id}] ${item.item}${status}\n`;
         if (item.brand) context += `  Brand: ${item.brand} | Tier: ${item.tier || 'General'}\n`;
         context += `  Hali: ${item.condition}\n`;
-        context += `  Bei ya Kawaida: TZS ${item.public_price.toLocaleString()}\n`;
-        context += `  🔒 Floor Price (SIRI!): TZS ${item.secret_floor_price.toLocaleString()}\n`;
+        context += `  Bei: TZS ${item.public_price.toLocaleString()}\n`;
+        context += `  MC: ${item.secret_floor_price.toLocaleString()}\n`;
         context += `  📦 Stock: ${qty} pcs\n`;
         if (item.features) context += `  ⭐ Features: ${item.features}\n`;
         const imgCount = Array.isArray(item.images) ? item.images.length : (item.image_file ? 1 : 0);
