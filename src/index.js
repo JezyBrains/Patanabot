@@ -915,14 +915,37 @@ async function processBufferedMessages(chatKey) {
             for (const match of imgMatches) {
                 const rawId = match[1].trim();
                 const item = getItemById(rawId) || findItemByName(rawId);
-                const images = Array.isArray(item?.images) ? item.images
-                    : (item?.image_file ? [item.image_file] : []);
-                for (const imgFile of images) {
+                if (!item) continue;
+
+                const localImages = Array.isArray(item.images) ? item.images
+                    : (item.image_file ? [item.image_file] : []);
+                let sentAny = false;
+
+                // Try local images first
+                for (const imgFile of localImages) {
+                    if (!imgFile) continue;
                     const imagePath = join(__dirname, '..', 'data', 'images', imgFile);
                     try {
                         const media2 = MessageMedia.fromFilePath(imagePath);
                         await client.sendMessage(message.from, media2);
-                    } catch { /* file missing — skip */ }
+                        sentAny = true;
+                    } catch { /* file missing */ }
+                }
+
+                // Fallback: download from image_url if no local images sent
+                if (!sentAny && item.image_url) {
+                    try {
+                        const media2 = await MessageMedia.fromUrl(item.image_url, { unsafeMime: true });
+                        await client.sendMessage(message.from, media2);
+                        sentAny = true;
+                        console.log(`🌐 [URL IMAGE] ${item.id} → downloaded from URL`);
+                    } catch (urlErr) {
+                        console.error(`❌ [URL IMAGE] Failed for ${item.id}: ${urlErr.message}`);
+                    }
+                }
+
+                if (!sentAny) {
+                    console.log(`⚠️ [NO IMAGE] ${item.id} — no local file or URL`);
                 }
             }
             console.log(`🖼️ [SEND IMAGE] ${imgMatches.length} products → ${userPhone}`);

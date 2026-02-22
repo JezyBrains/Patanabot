@@ -14,7 +14,8 @@
             "public_price": 1400000,
             "secret_floor_price": 1250000,
             "stock_qty": 3,
-            "image_file": "samsung_s24.jpg"
+            "image_file": "samsung_s24.jpg",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/2401/gallery/africa-en-galaxy-s24-s928-sm-s924bzkdafa-thumb-539573125"
         },
         {
             "id": "samsung_s23",
@@ -27,7 +28,8 @@
             "public_price": 1250000,
             "secret_floor_price": 1100000,
             "stock_qty": 2,
-            "image_file": "samsung_s23.jpg"
+            "image_file": "samsung_s23.jpg",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/2302/gallery/africa-en-galaxy-s23-s911-sm-s911bzkdafa-thumb-534863401"
         },
         {
             "id": "samsung_zflip4",
@@ -40,7 +42,8 @@
             "public_price": 800000,
             "secret_floor_price": 700000,
             "stock_qty": 1,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/2208/gallery/africa-en-galaxy-z-flip4-f721-sm-f721bzkdafa-thumb-533567234"
         },
         {
             "id": "samsung_s21ultra",
@@ -53,7 +56,8 @@
             "public_price": 750000,
             "secret_floor_price": 650000,
             "stock_qty": 2,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/galaxy-s21-ultra-5g/gallery/africa-en-galaxy-s21-ultra-5g-g988-sm-g998bzkdxef-thumb-368338883"
         },
         {
             "id": "samsung_a54",
@@ -66,7 +70,8 @@
             "public_price": 550000,
             "secret_floor_price": 480000,
             "stock_qty": 5,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/2302/gallery/africa-en-galaxy-a54-5g-sm-a546ezdcafa-thumb-534844218"
         },
         {
             "id": "iphone15",
@@ -79,7 +84,8 @@
             "public_price": 2000000,
             "secret_floor_price": 1800000,
             "stock_qty": 2,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-black?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "iphone14pro",
@@ -92,7 +98,8 @@
             "public_price": 1700000,
             "secret_floor_price": 1500000,
             "stock_qty": 1,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-1inch-deeppurple?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "iphone14",
@@ -105,7 +112,8 @@
             "public_price": 1350000,
             "secret_floor_price": 1200000,
             "stock_qty": 3,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-finish-select-202209-6-1inch-blue?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "iphone13promax",
@@ -118,7 +126,8 @@
             "public_price": 1650000,
             "secret_floor_price": 1450000,
             "stock_qty": 2,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-13-pro-max-graphite-select?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "iphone11",
@@ -131,7 +140,8 @@
             "public_price": 350000,
             "secret_floor_price": 300000,
             "stock_qty": 1,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-11-green-select-2019?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "pixel9",
@@ -144,7 +154,8 @@
             "public_price": 1700000,
             "secret_floor_price": 1500000,
             "stock_qty": 2,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://lh3.googleusercontent.com/P2n1Y3J2s8Xsc4mPdkXdqR-MKhR0X_VRtJqm4h7VfRtf2GFrJ5VDLRrmQnW0rDJMcw=w400"
         },
         {
             "id": "pixel9pro",
@@ -157,7 +168,8 @@
             "public_price": 2150000,
             "secret_floor_price": 1900000,
             "stock_qty": 1,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://lh3.googleusercontent.com/W1H7cPkXlXKrYe0ZtA_lB0GRJjDIEaVHiprXvR_czQq-RW2Gg6b6Dqj8n3cF9p0YW-s=w400"
         },
         {
             "id": "nokia235",
@@ -170,7 +182,8 @@
             "public_price": 200000,
             "secret_floor_price": 170000,
             "stock_qty": 10,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://fdn2.gsmarena.com/vv/bigpic/nokia-235-4g-2024.jpg"
         },
         {
             "id": "tecno_spark20",
@@ -183,7 +196,8 @@
             "public_price": 380000,
             "secret_floor_price": 320000,
             "stock_qty": 4,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://fdn2.gsmarena.com/vv/bigpic/tecno-spark-20-pro-plus.jpg"
         },
         {
             "id": "tab_a11",
@@ -196,7 +210,8 @@
             "public_price": 470000,
             "secret_floor_price": 400000,
             "stock_qty": 3,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/feature/164036912/africa-en-feature--531820972"
         },
         {
             "id": "tab_s10ultra",
@@ -209,7 +224,8 @@
             "public_price": 3150000,
             "secret_floor_price": 2800000,
             "stock_qty": 1,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/2410/gallery/africa-en-galaxy-tab-s10-ultra-wifi-sm-x920nzadafa-thumb-542418143"
         },
         {
             "id": "modio_m39",
@@ -222,7 +238,8 @@
             "public_price": 300000,
             "secret_floor_price": 250000,
             "stock_qty": 5,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://ke.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/73/2158001/1.jpg"
         },
         {
             "id": "modio_m128",
@@ -235,7 +252,8 @@
             "public_price": 270000,
             "secret_floor_price": 220000,
             "stock_qty": 4,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://ke.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/50/5530091/1.jpg"
         },
         {
             "id": "atouch_x19",
@@ -248,7 +266,8 @@
             "public_price": 320000,
             "secret_floor_price": 270000,
             "stock_qty": 3,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://ke.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/57/1896961/1.jpg"
         },
         {
             "id": "ipad10",
@@ -261,7 +280,8 @@
             "public_price": 1300000,
             "secret_floor_price": 1150000,
             "stock_qty": 1,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/ipad-10th-gen-finish-select-202210-blue-wifi?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "airpods_pro2",
@@ -274,7 +294,8 @@
             "public_price": 70000,
             "secret_floor_price": 50000,
             "stock_qty": 8,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/MQD83?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "airpods_max",
@@ -287,7 +308,8 @@
             "public_price": 120000,
             "secret_floor_price": 95000,
             "stock_qty": 3,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/airpods-max-select-silver-202011?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "galaxy_buds",
@@ -300,7 +322,8 @@
             "public_price": 50000,
             "secret_floor_price": 35000,
             "stock_qty": 6,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/2301/gallery/africa-en-galaxy-buds-fe-sm-r400nzaaxfa-thumb-537157614"
         },
         {
             "id": "jbl_s25",
@@ -313,7 +336,8 @@
             "public_price": 50000,
             "secret_floor_price": 35000,
             "stock_qty": 5,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://www.jbl.com/dw/image/v2/AAUJ_PRD/on/demandware.static/-/Sites-masterCatalog_Harman/default/dw76eb1b01/JBL_TUNE_BEAM_Product_Image_Hero_Blue.png?sw=400"
         },
         {
             "id": "jbl_770nc",
@@ -326,7 +350,8 @@
             "public_price": 400000,
             "secret_floor_price": 350000,
             "stock_qty": 2,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://www.jbl.com/dw/image/v2/AAUJ_PRD/on/demandware.static/-/Sites-masterCatalog_Harman/default/dw46d28f36/JBL_LIVE_770NC_Product_Image_Hero_Blue.png?sw=400"
         },
         {
             "id": "oraimo_buds",
@@ -339,7 +364,8 @@
             "public_price": 35000,
             "secret_floor_price": 25000,
             "stock_qty": 10,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/65/0791542/1.jpg"
         },
         {
             "id": "sony_wf1000",
@@ -352,7 +378,8 @@
             "public_price": 60000,
             "secret_floor_price": 45000,
             "stock_qty": 3,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://m.media-amazon.com/images/I/61S6Mhb-PNL._AC_SX679_.jpg"
         },
         {
             "id": "anker_r60i",
@@ -365,7 +392,8 @@
             "public_price": 180000,
             "secret_floor_price": 150000,
             "stock_qty": 2,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://m.media-amazon.com/images/I/61JnvqCqURL._AC_SX679_.jpg"
         },
         {
             "id": "oraimo_pb10",
@@ -378,7 +406,8 @@
             "public_price": 35000,
             "secret_floor_price": 25000,
             "stock_qty": 8,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/07/5113431/1.jpg"
         },
         {
             "id": "oraimo_pb20",
@@ -391,7 +420,8 @@
             "public_price": 55000,
             "secret_floor_price": 40000,
             "stock_qty": 5,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/39/1988001/1.jpg"
         },
         {
             "id": "anker_pb26",
@@ -404,7 +434,8 @@
             "public_price": 120000,
             "secret_floor_price": 95000,
             "stock_qty": 2,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://m.media-amazon.com/images/I/51Vp-XOEL-L._AC_SX679_.jpg"
         },
         {
             "id": "samsung_pb10",
@@ -417,7 +448,8 @@
             "public_price": 80000,
             "secret_floor_price": 65000,
             "stock_qty": 3,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/eb-u1200csegww/gallery/africa-en-wireless-battery-pack-10-000-mah-eb-u1200csegww-Silver-191428165"
         },
         {
             "id": "samsung_charger45",
@@ -430,7 +462,8 @@
             "public_price": 40000,
             "secret_floor_price": 30000,
             "stock_qty": 10,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/ep-t4510xbegeu/gallery/africa-en-45w-power-adapter-ep-t4510xbegeu-thumb-537217949"
         },
         {
             "id": "apple_charger20",
@@ -443,7 +476,8 @@
             "public_price": 35000,
             "secret_floor_price": 25000,
             "stock_qty": 8,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/MHJA3?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "cable_lightning",
@@ -456,7 +490,8 @@
             "public_price": 20000,
             "secret_floor_price": 12000,
             "stock_qty": 15,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/MM0A3?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "cable_usbc",
@@ -469,7 +504,8 @@
             "public_price": 15000,
             "secret_floor_price": 8000,
             "stock_qty": 15,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://m.media-amazon.com/images/I/61nPUPMDgzL._AC_SX679_.jpg"
         },
         {
             "id": "apple_watch9",
@@ -482,7 +518,8 @@
             "public_price": 950000,
             "secret_floor_price": 800000,
             "stock_qty": 1,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/watch-s9-702-702-aluminum-midnight-sport-band-midnight?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "galaxy_watch6",
@@ -495,7 +532,8 @@
             "public_price": 550000,
             "secret_floor_price": 450000,
             "stock_qty": 2,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://images.samsung.com/is/image/samsung/p6pim/africa_en/2307/gallery/africa-en-galaxy-watch6-sm-l945fzkaxfa-thumb-537016629"
         },
         {
             "id": "modio_mw09",
@@ -508,7 +546,8 @@
             "public_price": 85000,
             "secret_floor_price": 60000,
             "stock_qty": 4,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://ke.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/89/5449541/1.jpg"
         },
         {
             "id": "macbook_air_m2",
@@ -521,7 +560,8 @@
             "public_price": 2800000,
             "secret_floor_price": 2500000,
             "stock_qty": 1,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/macbook-air-midnight-select-20220606?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "macbook_pro_m3",
@@ -534,7 +574,8 @@
             "public_price": 4200000,
             "secret_floor_price": 3800000,
             "stock_qty": 1,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/mbp-14-spacegray-select-202310?wid=400&hei=400&fmt=jpeg"
         },
         {
             "id": "hp_15s",
@@ -547,7 +588,8 @@
             "public_price": 1200000,
             "secret_floor_price": 1000000,
             "stock_qty": 2,
-            "image_file": ""
+            "image_file": "",
+            "image_url": "https://m.media-amazon.com/images/I/71jG+e7roXL._AC_SX679_.jpg"
         }
     ]
 }
