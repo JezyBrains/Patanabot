@@ -110,9 +110,9 @@ const pendingPayments = new Map();
 // --- Last product owner interacted with (for captionless photo attach) ---
 let lastOwnerProduct = null;
 
-// --- Anti-Spam: Rate Limiter (per customer) ---
-const COOLDOWN_MS = 5000;
-const lastMessageTime = new Map();
+// --- Message Accumulator: Buffer rapid messages, then process together ---
+const MESSAGE_BUFFER_MS = 3000; // Wait 3 seconds for more messages before processing
+const messageBuffers = new Map(); // chatKey → { texts: [], media: null, timer, message, isVoice }
 const recentMessageIds = new Set();
 
 // --- Anti-Troll: Auto-ignore time-wasters ---
@@ -636,19 +636,8 @@ client.on('message', async (message) => {
             return;
         }
 
-        // Anti-spam rate limiter
-        const now = Date.now();
-        const lastTime = lastMessageTime.get(chatKey);
-        if (lastTime) {
-            const elapsed = now - lastTime;
-            if (elapsed < COOLDOWN_MS) {
-                console.log(`🛡️ [RATE LIMIT] ${userPhone} — ${elapsed}ms since last msg (need ${COOLDOWN_MS}ms). Text: "${(message.body || '').slice(0, 30)}"`);
-                return;
-            }
-        }
-        lastMessageTime.set(chatKey, now);
-
         // Anti-troll: check if customer is in cooldown
+        const now = Date.now();
         const trollExpiry = trollCooldown.get(userPhone);
         if (trollExpiry && now < trollExpiry) {
             console.log(`🚫 [TROLL COOLDOWN] ${userPhone} — ignored (${Math.round((trollExpiry - now) / 60000)}m left)`);
@@ -700,8 +689,66 @@ client.on('message', async (message) => {
             return;
         }
 
+        // --- Message Accumulator: Buffer rapid messages ---
+        // If customer sends multiple texts quickly, collect them all before responding
+        const existing = messageBuffers.get(chatKey);
+        if (existing) {
+            // Add to existing buffer
+            if (text) existing.texts.push(text);
+            if (media && !existing.media) existing.media = media;
+            if (isVoiceNote) existing.isVoice = true;
+            existing.message = message; // Keep latest message for reply
+            clearTimeout(existing.timer);
+            console.log(`📝 [BUFFER] +1 from ${userPhone} (${existing.texts.length} msgs buffered)`);
+        } else {
+            // Start new buffer
+            messageBuffers.set(chatKey, {
+                texts: text ? [text] : [],
+                media: media || null,
+                isVoice: isVoiceNote,
+                message,
+                timer: null,
+            });
+        }
+
+        // Set timer — process after MESSAGE_BUFFER_MS of silence
+        const buffer = messageBuffers.get(chatKey);
+        buffer.timer = setTimeout(() => processBufferedMessages(chatKey), MESSAGE_BUFFER_MS);
+        return; // Don't process yet — wait for buffer timeout
+
+    } catch (error) {
+        console.error('❌ Message handler error:', error.message);
+    }
+});
+
+// ============================================================
+// PROCESS BUFFERED MESSAGES (with typing indicator + human delay)
+// ============================================================
+async function processBufferedMessages(chatKey) {
+    const buffer = messageBuffers.get(chatKey);
+    if (!buffer) return;
+    messageBuffers.delete(chatKey);
+
+    const { texts, media, isVoice, message } = buffer;
+    const combinedText = texts.join('\n');
+
+    if (!combinedText && !media) return;
+
+    try {
+        const contact = await message.getContact();
+        const userPhone = contact.number;
+        const profile = getCustomerProfile(userPhone);
+
+        if (texts.length > 1) {
+            console.log(`📦 [COMBINED] ${texts.length} msgs from ${userPhone}: "${combinedText.slice(0, 60)}"`);
+        }
+
+        // Show "typing..." indicator
+        const chat = await message.getChat();
+        await chat.sendStateTyping();
+
         // --- AI Response ---
-        let aiResponse = await generateResponse(userPhone, text, media);
+        let aiResponse = await generateResponse(userPhone, combinedText, media);
 
         // --- SMART ALERT Interceptor (escalation without pausing) ---
         const alertMatch = aiResponse.match(ALERT_TAG_REGEX);
@@ -718,76 +765,56 @@ client.on('message', async (message) => {
                     OWNER_PHONE,
                     `🚨 *ALERT #${escCount}/5 — Mteja +${userPhone}*\n${profile.label}\n\n` +
                     `📋 *Tatizo:* ${summary}\n` +
-                    `💬 *Meseji:* "${text || '[Media]'}"\n\n` +
+                    `💬 *Meseji:* "${combinedText || '[Media]'}"\n\n` +
                     `💡 *Reply hii meseji* na maelekezo yako!`
                 );
 
                 console.log(`🚨 [ALERT #${escCount}] ${userPhone}: ${summary}`);
             }
-
-            if (escCount >= MAX_ESCALATIONS_PER_CUSTOMER) {
-                console.log(`⚠️ [MAX ALERTS] ${userPhone} hit ${MAX_ESCALATIONS_PER_CUSTOMER} escalations`);
-            }
         }
 
-        // --- CHECK STOCK Interceptor (pretend checking, alert owner) ---
+        // --- CHECK STOCK Interceptor ---
         const checkStockMatch = aiResponse.match(CHECK_STOCK_TAG_REGEX);
         if (checkStockMatch) {
             const [fullTag, item] = checkStockMatch;
             aiResponse = aiResponse.replace(fullTag, '').trim();
-
-            // Start the stock check relay — pings owner with reminders
             startStockCheck(userPhone, item.trim(), message.from);
-            console.log(`📦 [CHECK STOCK] "${item}" — owner pinged, waiting for reply`);
-
-            // Send the "checking..." message to customer and stop here
-            await message.reply(aiResponse);
-            console.log(`🤖 [PatanaBot → ${userPhone}]: ${aiResponse.substring(0, 80)}...`);
-            return;
+            console.log(`📦 [CHECK STOCK] "${item}" — owner pinged`);
         }
 
-        // --- PENDING PAYMENT Interceptor (replaces ORDER_CLOSED) ---
+        // --- PENDING PAYMENT Interceptor ---
         const pendingMatch = aiResponse.match(PENDING_PAYMENT_TAG_REGEX);
         if (pendingMatch) {
             const [fullTag, itemId, price, location] = pendingMatch;
             aiResponse = aiResponse.replace(fullTag, '').trim();
 
-            // Deduct stock immediately
             const deducted = deductStock(itemId.trim());
-            if (!deducted) {
-                console.log(`❌ [STOCK FAIL] ${itemId} — out of stock, can't reserve`);
-            }
+            if (!deducted) console.log(`❌ [STOCK FAIL] ${itemId} — out of stock`);
 
-            // Store pending payment
             pendingPayments.set(userPhone, {
-                itemId: itemId.trim(),
-                price: price.trim(),
-                location: location.trim(),
-                timestamp: Date.now(),
+                itemId: itemId.trim(), price: price.trim(),
+                location: location.trim(), timestamp: Date.now(),
             });
 
-            // Alert owner
             if (OWNER_PHONE) {
                 const item = getItemById(itemId.trim());
                 const itemName = item ? item.item : itemId.trim();
                 const profile2 = getCustomerProfile(userPhone);
-                await client.sendMessage(
-                    OWNER_PHONE,
-                    `💰 *PENDING PAYMENT:*\n+${userPhone} (${profile2.label})\nBidhaa: ${itemName}\nBei: TZS ${price.trim()}\nLocation: ${location.trim()}\n\n_Mteja anatuma muamala. Akituma screenshot, nitakuuliza THIBITISHA au KATAA._`
+                await client.sendMessage(OWNER_PHONE,
+                    `💰 *PENDING PAYMENT:*\n+${userPhone} (${profile2.label})\nBidhaa: ${itemName}\nBei: TZS ${price.trim()}\nLocation: ${location.trim()}\n\n_Mteja anatuma muamala._`
                 );
             }
-
-            console.log(`💰 [PENDING] ${itemId} @ TZS ${price} → ${location} (stock deducted)`);
+            console.log(`💰 [PENDING] ${itemId} @ TZS ${price} → ${location}`);
         }
 
-        // --- Backward compat: ORDER_CLOSED (if AI still uses old tag) ---
+        // --- ORDER_CLOSED (backward compat) ---
         const orderMatch = aiResponse.match(ORDER_TAG_REGEX);
         if (orderMatch) {
             const [fullTag, item, price, location] = orderMatch;
             saveOrder(userPhone, item.trim(), price.trim(), location.trim());
             aiResponse = aiResponse.replace(fullTag, '').trim();
-            const currentRating = getCustomerRating(userPhone);
-            if (currentRating < 5) setCustomerRating(userPhone, Math.min(5, currentRating + 1));
+            const curRating = getCustomerRating(userPhone);
+            if (curRating < 5) setCustomerRating(userPhone, Math.min(5, curRating + 1));
             resetEscalation(userPhone);
             console.log(`✅ [ORDER CLOSED] ${item} @ ${price} → ${location}`);
         }
@@ -796,44 +823,75 @@ client.on('message', async (message) => {
         const receiptMatch = aiResponse.match(RECEIPT_TAG_REGEX);
         if (receiptMatch) {
             aiResponse = aiResponse.replace(RECEIPT_TAG_REGEX, '').trim();
-
             const pending = pendingPayments.get(userPhone);
             if (pending && OWNER_PHONE) {
                 const item = getItemById(pending.itemId);
                 const itemName = item ? item.item : pending.itemId;
                 const profile2 = getCustomerProfile(userPhone);
-                await client.sendMessage(
-                    OWNER_PHONE,
-                    `🧾 *RECEIPT UPLOADED:*\n+${userPhone} (${profile2.label})\nBidhaa: ${itemName}\nBei: TZS ${pending.price}\n\n_Angalia kama hela imeingia. Reply:_\n*THIBITISHA* = Malipo OK ✅\n*KATAA* = Hayajaingia ❌`
+                await client.sendMessage(OWNER_PHONE,
+                    `🧾 *RECEIPT UPLOADED:*\n+${userPhone} (${profile2.label})\nBidhaa: ${itemName}\nBei: TZS ${pending.price}\n\n_THIBITISHA au KATAA_`
                 );
-                console.log(`🧾 [RECEIPT] ${userPhone} sent receipt for ${itemName}`);
+                console.log(`🧾 [RECEIPT] ${userPhone} → ${itemName}`);
             }
         }
 
-        // --- WhatsApp formatting cleanup (strip markdown that WhatsApp can't render) ---
-        aiResponse = aiResponse.replace(/\*\*(.+?)\*\*/g, '*$1*'); // **bold** → *bold*
-        aiResponse = aiResponse.replace(/^#+\s*/gm, '');           // Remove # headers
-        aiResponse = aiResponse.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // [text](url) → text
+        // --- WhatsApp formatting cleanup ---
+        aiResponse = aiResponse.replace(/\*\*(.+?)\*\*/g, '*$1*');
+        aiResponse = aiResponse.replace(/^#+\s*/gm, '');
+        aiResponse = aiResponse.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 
-        // --- SEND IMAGE Interceptor (Global — catches ALL tags) ---
+        // --- SEND IMAGE Interceptor (Global) ---
         const imgRegexGlobal = /\[SEND_IMAGE:\s*([^\]]+)\]/gi;
         const imgMatches = [...aiResponse.matchAll(imgRegexGlobal)];
-
-        // Strip ALL image tags from text BEFORE sending
         aiResponse = aiResponse.replace(imgRegexGlobal, '').trim();
 
-        if (imgMatches.length > 0) {
-            // Send clean text first
-            if (aiResponse.length > 0) {
-                await message.reply(aiResponse);
+        // --- OUT OF STOCK ---
+        const oosMatch = aiResponse.match(OOS_TAG_REGEX);
+        if (oosMatch) {
+            const [fullTag, item] = oosMatch;
+            saveMissedOpportunity(item.trim());
+            aiResponse = aiResponse.replace(fullTag, '').trim();
+            console.log(`📉 [OUT OF STOCK] "${item}" — logged`);
+        }
+
+        // --- TROLL Interceptor ---
+        const trollMatch = aiResponse.match(TROLL_TAG_REGEX);
+        if (trollMatch) {
+            aiResponse = aiResponse.replace(TROLL_TAG_REGEX, '').trim();
+            trollCooldown.set(userPhone, Date.now() + TROLL_COOLDOWN_MS);
+            const curRating = getCustomerRating(userPhone);
+            if (curRating > 1) setCustomerRating(userPhone, Math.max(1, curRating - 1));
+            if (OWNER_PHONE) {
+                await client.sendMessage(OWNER_PHONE,
+                    `🚫 *TROLL:* +${userPhone}\nCooldown 30 min.`
+                );
             }
-            // Send ALL product photos
+            setTimeout(async () => {
+                try {
+                    await client.sendMessage(message.from,
+                        'Habari Boss! 👋 Kama unahitaji bidhaa yoyote, nipo hapa! 🔥'
+                    );
+                } catch { }
+            }, TROLL_COOLDOWN_MS);
+            console.log(`🚫 [TROLL] ${userPhone} — 30min cooldown`);
+        }
+
+        // --- Human delay: simulate reading + typing (1-4 seconds) ---
+        const replyLength = aiResponse.length;
+        const humanDelay = Math.min(4000, Math.max(1000, replyLength * 8));
+        await new Promise(r => setTimeout(r, humanDelay));
+
+        // Clear typing state
+        await chat.clearState();
+
+        // --- Send reply ---
+        if (imgMatches.length > 0) {
+            if (aiResponse.length > 0) await message.reply(aiResponse);
             for (const match of imgMatches) {
                 const rawId = match[1].trim();
                 const item = getItemById(rawId) || findItemByName(rawId);
                 const images = Array.isArray(item?.images) ? item.images
                     : (item?.image_file ? [item.image_file] : []);
-
                 for (const imgFile of images) {
                     const imagePath = join(__dirname, '..', 'data', 'images', imgFile);
                     if (existsSync(imagePath)) {
@@ -843,59 +901,14 @@ client.on('message', async (message) => {
                 }
             }
             console.log(`🖼️ [SEND IMAGE] ${imgMatches.length} products → ${userPhone}`);
-            return;
+        } else {
+            await message.reply(aiResponse);
         }
 
-        // --- OUT OF STOCK Interceptor ---
-        const oosMatch = aiResponse.match(OOS_TAG_REGEX);
-        if (oosMatch) {
-            const [fullTag, item] = oosMatch;
-            saveMissedOpportunity(item.trim());
-            aiResponse = aiResponse.replace(fullTag, '').trim();
-            console.log(`📉 [OUT OF STOCK] "${item}" — logged`);
-        }
-
-        // --- TROLL Interceptor (auto-cooldown time-wasters) ---
-        const trollMatch = aiResponse.match(TROLL_TAG_REGEX);
-        if (trollMatch) {
-            aiResponse = aiResponse.replace(TROLL_TAG_REGEX, '').trim();
-
-            // Put customer in 30-minute cooldown
-            trollCooldown.set(userPhone, Date.now() + TROLL_COOLDOWN_MS);
-
-            // Downrate customer
-            const currentRating = getCustomerRating(userPhone);
-            if (currentRating > 1) setCustomerRating(userPhone, Math.max(1, currentRating - 1));
-
-            // Alert owner
-            if (OWNER_PHONE) {
-                const profile2 = getCustomerProfile(userPhone);
-                await client.sendMessage(
-                    OWNER_PHONE,
-                    `🚫 *TROLL DETECTED:* +${userPhone}\n${profile2.label}\nAmepigwa cooldown ya dakika 30.`
-                );
-            }
-
-            // Schedule follow-up after cooldown
-            setTimeout(async () => {
-                try {
-                    await client.sendMessage(
-                        message.from,
-                        'Habari Boss! 👋 Natumaini uko salama. Kama unahitaji bidhaa yoyote leo, nipo hapa kukusaidia! 🔥'
-                    );
-                    console.log(`🔄 [FOLLOW-UP] ${userPhone} — re-engagement sent`);
-                } catch { /* ignore if send fails */ }
-            }, TROLL_COOLDOWN_MS);
-
-            console.log(`🚫 [TROLL] ${userPhone} — 30min cooldown + follow-up scheduled`);
-        }
-
-        // Reply to customer
-        await message.reply(aiResponse);
         console.log(`🤖 [PatanaBot → ${userPhone}]: ${aiResponse.substring(0, 80)}...`);
 
-        // Voice reply: if customer sent voice note, reply with audio too
-        if (isVoiceNote && isVoiceEnabled()) {
+        // Voice reply: if customer sent voice note
+        if (isVoice && isVoiceEnabled()) {
             try {
                 const audioBuffer = await textToVoiceNote(aiResponse);
                 if (audioBuffer) {
@@ -905,13 +918,13 @@ client.on('message', async (message) => {
                 }
             } catch (ttsErr) {
                 console.error(`❌ [TTS] Voice reply failed: ${ttsErr.message}`);
-                // Text reply already sent — no harm done
             }
         }
+
     } catch (error) {
-        console.error('❌ Message handler error:', error.message);
+        console.error('❌ [PROCESS] Error:', error.message);
     }
-});
+}
 
 // ============================================================
 // DAILY INTELLIGENCE REPORT (8:00 PM EAT)
