@@ -155,12 +155,13 @@ export function findItemByName(query) {
 /**
  * Deduct stock by 1. Returns true if successful, false if out of stock.
  */
-export function deductStock(itemId) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+export function deductStock(itemId, options = {}) {
+    const pPath = options.profilePath || profilePath;
+    const profile = JSON.parse(readFileSync(pPath, 'utf-8'));
     const item = profile.inventory.find(i => i.id === itemId);
     if (!item || (item.stock_qty !== undefined && item.stock_qty <= 0)) return false;
     if (item.stock_qty !== undefined) item.stock_qty -= 1;
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    writeFileSync(pPath, JSON.stringify(profile, null, 4), 'utf-8');
     console.log(`📦 [STOCK] ${item.item}: ${item.stock_qty} remaining`);
     return true;
 }
