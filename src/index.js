@@ -7,6 +7,7 @@ import { existsSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateResponse } from './ai.js';
+import { textToVoiceNote, isVoiceEnabled } from './tts.js';
 import {
     saveOrder, pauseBot, isBotActive, resumeBot, resumeAllBots,
     saveMissedOpportunity, getDailySummary,
@@ -675,10 +676,11 @@ client.on('message', async (message) => {
 
         // Download media if present
         let media = null;
+        const isVoiceNote = message.type === 'ptt' || message.type === 'audio';
         if (message.hasMedia) {
             try {
                 media = await message.downloadMedia();
-                console.log(`📎 [MEDIA] ${media.mimetype} from ${userPhone}`);
+                console.log(`📎 [MEDIA] ${media.mimetype}${isVoiceNote ? ' 🎤 VOICE' : ''} from ${userPhone}`);
             } catch (err) {
                 console.error(`❌ Media download failed for ${userPhone}:`, err.message);
             }
@@ -891,6 +893,21 @@ client.on('message', async (message) => {
         // Reply to customer
         await message.reply(aiResponse);
         console.log(`🤖 [PatanaBot → ${userPhone}]: ${aiResponse.substring(0, 80)}...`);
+
+        // Voice reply: if customer sent voice note, reply with audio too
+        if (isVoiceNote && isVoiceEnabled()) {
+            try {
+                const audioBuffer = await textToVoiceNote(aiResponse);
+                if (audioBuffer) {
+                    const voiceMedia = new MessageMedia('audio/ogg; codecs=opus', audioBuffer.toString('base64'), 'voice.ogg');
+                    await client.sendMessage(message.from, voiceMedia, { sendAudioAsVoice: true });
+                    console.log(`🎤 [VOICE REPLY] → ${userPhone}`);
+                }
+            } catch (ttsErr) {
+                console.error(`❌ [TTS] Voice reply failed: ${ttsErr.message}`);
+                // Text reply already sent — no harm done
+            }
+        }
     } catch (error) {
         console.error('❌ Message handler error:', error.message);
     }

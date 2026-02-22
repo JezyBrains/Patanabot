@@ -18,6 +18,7 @@
   "author": "JezyBrains",
   "license": "ISC",
   "dependencies": {
+    "@google/genai": "^1.42.0",
     "@google/generative-ai": "^0.24.1",
     "better-sqlite3": "^12.6.2",
     "dotenv": "^17.3.1",
