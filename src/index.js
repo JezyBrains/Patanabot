@@ -242,7 +242,7 @@ client.on('message', async (message) => {
 
                     // --- Owner IMAGE: Quick-add OR add photo to existing ---
                 } else if (media.mimetype && media.mimetype.includes('image')) {
-                    const { writeFileSync: writeImg } = await import('fs');
+                    const { writeFile } = await import('fs/promises');
 
                     if (upperCaption.startsWith('PICHA:') || upperCaption.startsWith('PICHA ')) {
                         // Add more photos to existing product — fuzzy name match
@@ -252,7 +252,7 @@ client.on('message', async (message) => {
                             const existing = Array.isArray(item.images) ? item.images.length : 0;
                             const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
                             const fileName = `${item.id}_${existing + 1}.${ext}`;
-                            writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
+                            await writeFile(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
                             addProductImage(item.id, fileName);
                             lastOwnerProduct = item.id;
                             await message.reply(`✅ Picha #${existing + 1} ya *${item.item}* imehifadhiwa! 📸`);
@@ -276,7 +276,7 @@ client.on('message', async (message) => {
                             const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
                             const existing = Array.isArray(item.images) ? item.images.length : 0;
                             const fileName = `${item.id}_${existing + 1}.${ext}`;
-                            writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
+                            await writeFile(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
                             addProductImage(item.id, fileName);
                             lastOwnerProduct = item.id;
                             await message.reply(
@@ -297,7 +297,7 @@ client.on('message', async (message) => {
                             const existing = Array.isArray(item.images) ? item.images.length : 0;
                             const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
                             const fileName = `${item.id}_${existing + 1}.${ext}`;
-                            writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
+                            await writeFile(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
                             addProductImage(item.id, fileName);
                             lastOwnerProduct = item.id;
                             await message.reply(`✅ Picha #${existing + 1} ya *${item.item}* imehifadhiwa! 📸`);
@@ -317,7 +317,7 @@ client.on('message', async (message) => {
                                 const existing = Array.isArray(item.images) ? item.images.length : 0;
                                 const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
                                 const fileName = `${item.id}_${existing + 1}.${ext}`;
-                                writeImg(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
+                                await writeFile(join(__dirname, '..', 'data', 'images', fileName), Buffer.from(media.data, 'base64'));
                                 addProductImage(item.id, fileName);
                                 await message.reply(`✅ Picha #${existing + 1} ya *${item.item}* imeongezwa! 📸\n_Endelea kutuma picha au andika jina jipya._`);
                                 return;
