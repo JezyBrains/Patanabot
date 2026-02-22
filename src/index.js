@@ -1,9 +1,10 @@
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth, MessageMedia } = pkg;
 import qrcode from 'qrcode-terminal';
+import http from 'http';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
-import { existsSync, unlinkSync, readdirSync, statSync } from 'fs';
+import { existsSync, unlinkSync, readdirSync, statSync, appendFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateResponse } from './ai.js';
@@ -12,6 +13,7 @@ import {
     saveMissedOpportunity, getDailySummary,
     getEscalationCount, incrementEscalation, resetEscalation,
     getCustomerRating, setCustomerRating, getCustomerProfile,
+    closeDb,
 } from './db.js';
 import { shopName, getInventoryList, deductStock, restoreStock, getItemById, getInventoryIds, updatePaymentInfo, setPaymentPolicy, getPaymentPolicy, addQuickProduct, addProductImage, findItemByName } from './shop.js';
 
@@ -29,6 +31,23 @@ console.log(`👤 Owner phone: ${OWNER_PHONE || '(not set)'}`);
 // Auto-resume all paused customers on boot
 const resumed = resumeAllBots();
 if (resumed > 0) console.log(`▶️ Auto-resumed ${resumed} paused customer(s) from previous session`);
+
+/**
+ * Log errors to a file with timestamps for debugging.
+ * @param {Error|string} error - The error object or message.
+ * @param {string} context - Optional context about where the error occurred.
+ */
+function logError(error, context = '') {
+    const timestamp = new Date().toISOString();
+    const errorMessage = error instanceof Error ? error.stack || error.message : error;
+    const logMessage = `[${timestamp}] ${context ? `[${context}] ` : ''}${errorMessage}\n`;
+
+    try {
+        appendFileSync(join(__dirname, '..', 'data', 'errors.log'), logMessage);
+    } catch (err) {
+        console.error('❌ Failed to write to errors.log:', err.message);
+    }
+}
 
 // --- Clean up stale Chromium lock files from Docker volume ---
 function cleanStaleLocks(dir) {
@@ -113,6 +132,7 @@ let lastOwnerProduct = null;
 const COOLDOWN_MS = 5000;
 const lastMessageTime = new Map();
 const recentMessageIds = new Set();
+let lastMessageTimestamp = null;
 
 // --- Anti-Troll: Auto-ignore time-wasters ---
 const trollCooldown = new Map(); // phone → expiry timestamp
@@ -190,6 +210,7 @@ function clearStockCheck(phone) {
 // ============================================================
 client.on('message', async (message) => {
     try {
+        lastMessageTimestamp = Date.now();
         if (message.from.includes('@g.us')) return; // skip groups
         if (message.from.includes('@broadcast')) return; // skip broadcasts
         if (message.from === 'status@broadcast') return; // skip status updates
@@ -893,6 +914,7 @@ client.on('message', async (message) => {
         console.log(`🤖 [PatanaBot → ${userPhone}]: ${aiResponse.substring(0, 80)}...`);
     } catch (error) {
         console.error('❌ Message handler error:', error.message);
+        logError(error, `Message Handler: ${message?.from || 'Unknown Sender'}`);
     }
 });
 
@@ -917,6 +939,45 @@ cron.schedule('0 20 * * *', async () => {
         console.error('❌ Daily report error:', error.message);
     }
 }, { timezone: 'Africa/Dar_es_Salaam' });
+
+// --- Health Check Server ---
+const healthServer = http.createServer((req, res) => {
+    if (req.url === '/' || req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            status: 'UP',
+            uptime: process.uptime(),
+            lastMessage: lastMessageTimestamp ? new Date(lastMessageTimestamp).toISOString() : 'None',
+        }));
+    } else {
+        res.writeHead(404);
+        res.end();
+    }
+});
+
+healthServer.listen(3001, () => {
+    console.log('🏥 Health check running on port 3001');
+});
+
+// --- Graceful Shutdown ---
+async function shutdown(signal) {
+    console.log(`\n🛑 Received ${signal}. Shutting down gracefully...`);
+    try {
+        await client.destroy();
+        console.log('✅ WhatsApp client destroyed.');
+        closeDb();
+        healthServer.close(() => {
+            console.log('✅ Health check server closed.');
+            process.exit(0);
+        });
+    } catch (error) {
+        console.error('❌ Error during shutdown:', error);
+        process.exit(1);
+    }
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 // --- Initialize ---
 console.log('\n🔄 Initializing PatanaBot Enterprise...');

@@ -214,6 +214,28 @@ ${shopContext}`;
 }
 
 /**
+ * Wrapper for chat.sendMessage with exponential backoff for 429/503 errors.
+ * Retries 3 times with 1s, 2s, 4s delays.
+ */
+export async function sendMessageWithRetry(chat, content, retries = 3) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            return await chat.sendMessage(content);
+        } catch (error) {
+            const isRetryable = error.status === 429 || error.status === 503 || error.message?.includes('429') || error.message?.includes('503');
+
+            if (isRetryable && attempt < retries) {
+                const delay = Math.pow(2, attempt) * 1000;
+                console.warn(`⚠️ Gemini API error ${error.status || ''}. Retrying in ${delay}ms... (Attempt ${attempt + 1}/${retries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw error;
+            }
+        }
+    }
+}
+
+/**
  * Generate an AI response for a customer message (supports text, images, and audio).
  * Model is created fresh each call to pick up any inventory changes from Excel uploads.
  * @param {string} userPhone - Customer phone number
@@ -286,8 +308,8 @@ export async function generateResponse(userPhone, prompt, media = null) {
             messageContent = prompt;
         }
 
-        // Send to Gemini
-        const result = await chat.sendMessage(messageContent);
+        // Send to Gemini with Retry Logic
+        const result = await sendMessageWithRetry(chat, messageContent);
         const responseText = result.response.text();
 
         // Build updated history (user message + model response)
