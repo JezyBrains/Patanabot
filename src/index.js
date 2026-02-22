@@ -747,8 +747,16 @@ async function processBufferedMessages(chatKey) {
         const chat = await message.getChat();
         await chat.sendStateTyping();
 
+        // --- Input length validation (prevent token abuse / Economic DoS) ---
+        const MAX_MSG_LENGTH = 1000;
+        let safeText = combinedText;
+        if (safeText.length > MAX_MSG_LENGTH) {
+            console.log(`⚠️ [TRUNCATED] ${userPhone} sent ${safeText.length} chars → trimmed to ${MAX_MSG_LENGTH}`);
+            safeText = safeText.slice(0, MAX_MSG_LENGTH);
+        }
+
         // --- AI Response ---
-        let aiResponse = await generateResponse(userPhone, combinedText, media);
+        let aiResponse = await generateResponse(userPhone, safeText, media);
 
         // --- SMART ALERT Interceptor (escalation without pausing) ---
         const alertMatch = aiResponse.match(ALERT_TAG_REGEX);
