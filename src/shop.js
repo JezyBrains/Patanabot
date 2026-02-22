@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -24,14 +24,14 @@ const DEFAULT_PROFILE = {
 function ensureProfile() {
     const dataDir = join(__dirname, '..', 'data');
     const imagesDir = join(dataDir, 'images');
-    if (!existsSync(dataDir)) {
-        mkdirSync(dataDir, { recursive: true });
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
     }
-    if (!existsSync(imagesDir)) {
-        mkdirSync(imagesDir, { recursive: true });
+    if (!fs.existsSync(imagesDir)) {
+        fs.mkdirSync(imagesDir, { recursive: true });
     }
-    if (!existsSync(profilePath)) {
-        writeFileSync(profilePath, JSON.stringify(DEFAULT_PROFILE, null, 2), 'utf-8');
+    if (!fs.existsSync(profilePath)) {
+        fs.writeFileSync(profilePath, JSON.stringify(DEFAULT_PROFILE, null, 2), 'utf-8');
         console.log('📦 Created default shop_profile.json (first boot)');
     }
 }
@@ -45,7 +45,7 @@ ensureProfile();
  * the AI uses the updated prices immediately — no restart needed.
  */
 export function getShopContext() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
 
     let context = `🏪 DUKA: ${profile.shop_name}\n`;
     context += `💰 MALIPO: ${profile.payment_info}\n`;
@@ -77,19 +77,19 @@ export function getShopContext() {
  * Get the shop name (read fresh from disk)
  */
 export function getShopName() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     return profile.shop_name;
 }
 
 // Export static shopName for startup display only
-const initialProfile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+const initialProfile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
 export const shopName = initialProfile.shop_name;
 
 /**
  * Get a formatted inventory list for owner display via WhatsApp
  */
 export function getInventoryList() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     const items = profile.inventory;
 
     if (!items || items.length === 0) return '📦 Stoo iko tupu! Tuma Excel au andika STOO: kuongeza bidhaa.';
@@ -128,7 +128,7 @@ export function getInventoryList() {
  * Get an item by its ID
  */
 export function getItemById(itemId) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     return profile.inventory.find(i => i.id === itemId) || null;
 }
 
@@ -137,7 +137,7 @@ export function getItemById(itemId) {
  * Owner types "picha: maji" → finds "Maji ya Uhai"
  */
 export function findItemByName(query) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     const q = query.toLowerCase().trim();
     // Try exact ID first
     const byId = profile.inventory.find(i => i.id === q);
@@ -156,11 +156,11 @@ export function findItemByName(query) {
  * Deduct stock by 1. Returns true if successful, false if out of stock.
  */
 export function deductStock(itemId) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     const item = profile.inventory.find(i => i.id === itemId);
     if (!item || (item.stock_qty !== undefined && item.stock_qty <= 0)) return false;
     if (item.stock_qty !== undefined) item.stock_qty -= 1;
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    fs.writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
     console.log(`📦 [STOCK] ${item.item}: ${item.stock_qty} remaining`);
     return true;
 }
@@ -169,11 +169,11 @@ export function deductStock(itemId) {
  * Restore stock by 1 (failed payment / cancelled order).
  */
 export function restoreStock(itemId) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     const item = profile.inventory.find(i => i.id === itemId);
     if (!item) return false;
     if (item.stock_qty !== undefined) item.stock_qty += 1;
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    fs.writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
     console.log(`📦 [STOCK RESTORED] ${item.item}: ${item.stock_qty} now`);
     return true;
 }
@@ -182,7 +182,7 @@ export function restoreStock(itemId) {
  * Add an image to a product's images array (supports multiple photos)
  */
 export function addProductImage(itemId, fileName) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     const item = profile.inventory.find(i => i.id === itemId);
     if (!item) return false;
     // Migrate from old image_file string to images array
@@ -191,7 +191,7 @@ export function addProductImage(itemId, fileName) {
         delete item.image_file;
     }
     item.images.push(fileName);
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    fs.writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
     return true;
 }
 
@@ -201,7 +201,7 @@ export function addProductImage(itemId, fileName) {
  * Returns { item, isNew } or throws error.
  */
 export function addQuickProduct(name, floorPrice, stockQty, unit) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
 
     // Generate ID from name: "Maji ya Uhai" → "maji_ya_uhai"
     const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -214,7 +214,7 @@ export function addQuickProduct(name, floorPrice, stockQty, unit) {
         existing.public_price = Math.round(floorPrice * 1.3); // 30% markup
         existing.stock_qty = stockQty;
         if (unit) existing.condition = unit;
-        writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+        fs.writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
         return { item: existing, isNew: false };
     }
 
@@ -231,7 +231,7 @@ export function addQuickProduct(name, floorPrice, stockQty, unit) {
         images: [],
     };
     profile.inventory.push(newItem);
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    fs.writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
     return { item: newItem, isNew: true };
 }
 
@@ -239,7 +239,7 @@ export function addQuickProduct(name, floorPrice, stockQty, unit) {
  * Get all inventory IDs for owner display
  */
 export function getInventoryIds() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     return profile.inventory.map(i => `• ${i.id} → ${i.item}`).join('\n');
 }
 
@@ -247,9 +247,9 @@ export function getInventoryIds() {
  * Update payment info (M-Pesa, bank, etc.)
  */
 export function updatePaymentInfo(newInfo) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     profile.payment_info = newInfo;
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    fs.writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
     return true;
 }
 
@@ -257,9 +257,9 @@ export function updatePaymentInfo(newInfo) {
  * Set payment policy: 'pay_first' or 'pay_on_delivery'
  */
 export function setPaymentPolicy(policy) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     profile.payment_policy = policy; // 'pay_first' or 'pay_on_delivery'
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    fs.writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
     return true;
 }
 
@@ -267,6 +267,6 @@ export function setPaymentPolicy(policy) {
  * Get current payment policy
  */
 export function getPaymentPolicy() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     return profile.payment_policy || 'pay_first';
 }
