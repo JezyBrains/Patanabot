@@ -8,6 +8,8 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateResponse } from './ai.js';
 import { textToVoiceNote, isVoiceEnabled } from './tts.js';
+import { parseMpesaText, verifyReceiptImage, validateReceipt, isMpesaText } from './receipt.js';
+import { loadProfile } from './shop.js';
 import {
     saveOrder, pauseBot, isBotActive, resumeBot, resumeAllBots,
     saveMissedOpportunity, getDailySummary,
@@ -762,6 +764,81 @@ async function processBufferedMessages(chatKey) {
         // Show "typing..." indicator
         const chat = await message.getChat();
         await chat.sendStateTyping();
+
+        // ============================================================
+        // PRE-AI RECEIPT INTERCEPTION — Check BEFORE sending to AI
+        // ============================================================
+        const pending = pendingPayments.get(userPhone);
+
+        // 1. Text receipt (forwarded M-Pesa confirmation)
+        if (pending && isMpesaText(combinedText)) {
+            console.log(`🧾 [RECEIPT TEXT] Detected M-Pesa text from ${userPhone}`);
+            const parsed = parseMpesaText(combinedText);
+            if (parsed) {
+                const shopData = loadProfile();
+                const validation = validateReceipt(parsed, pending, shopData.payment_info);
+                const item = getItemById(pending.itemId);
+                const itemName = item ? item.item : pending.itemId;
+
+                // Build verification report for owner
+                let report = `🧾 *RECEIPT RECEIVED:*\n`;
+                report += `👤 +${userPhone} (${profile.label})\n`;
+                report += `📦 Bidhaa: ${itemName}\n`;
+                report += `💰 Bei: TZS ${pending.price}\n`;
+                if (parsed.transactionId) report += `🔢 TxID: ${parsed.transactionId}\n`;
+                if (parsed.amount) report += `💵 Kiasi: TZS ${parsed.amount.toLocaleString()}\n`;
+                if (parsed.recipient) report += `👤 Kwa: ${parsed.recipient}\n`;
+                if (parsed.date) report += `📅 Tarehe: ${parsed.date}\n`;
+                report += `\n${validation.valid ? '✅ *VERIFIED — Kiasi na jina vinafanana!*' : '⚠️ *ISSUES:*\n' + validation.issues.map(i => '- ' + i).join('\n')}`;
+                report += `\n\n_Jibu THIBITISHA au KATAA_`;
+
+                if (OWNER_PHONE) {
+                    await client.sendMessage(OWNER_PHONE, report);
+                }
+
+                await chat.clearState();
+                await message.reply('Asante boss! Nimepokea muamala wako. Tunakagua sasa... ⏳');
+                console.log(`🧾 [VERIFIED] ${validation.valid ? '✅' : '⚠️'} ${userPhone} → TxID: ${parsed.transactionId || 'N/A'}`);
+                return;
+            }
+        }
+
+        // 2. Image receipt (screenshot of M-Pesa app or payment confirmation)
+        if (pending && media && media.mimetype?.includes('image')) {
+            // Try to verify as receipt image BEFORE sending to AI
+            const receiptData = await verifyReceiptImage(media.data, media.mimetype);
+            if (receiptData) {
+                console.log(`🧾 [RECEIPT IMAGE] Detected payment screenshot from ${userPhone}`);
+                const shopData = loadProfile();
+                const validation = validateReceipt(receiptData, pending, shopData.payment_info);
+                const item = getItemById(pending.itemId);
+                const itemName = item ? item.item : pending.itemId;
+
+                // Build verification report
+                let report = `🧾 *RECEIPT SCREENSHOT:*\n`;
+                report += `👤 +${userPhone} (${profile.label})\n`;
+                report += `📦 Bidhaa: ${itemName}\n`;
+                report += `💰 Bei: TZS ${pending.price}\n`;
+                if (receiptData.transactionId) report += `🔢 TxID: ${receiptData.transactionId}\n`;
+                if (receiptData.amount) report += `💵 Kiasi: TZS ${receiptData.amount.toLocaleString()}\n`;
+                if (receiptData.recipient) report += `👤 Kwa: ${receiptData.recipient}\n`;
+                if (receiptData.date) report += `📅 Tarehe: ${receiptData.date}\n`;
+                report += `\n${validation.valid ? '✅ *VERIFIED — Kiasi na jina vinafanana!*' : '⚠️ *ISSUES:*\n' + validation.issues.map(i => '- ' + i).join('\n')}`;
+                report += `\n\n_Jibu THIBITISHA au KATAA_`;
+
+                if (OWNER_PHONE) {
+                    // Forward the ACTUAL receipt image to owner
+                    const receiptMedia = new MessageMedia(media.mimetype, media.data, 'receipt.jpg');
+                    await client.sendMessage(OWNER_PHONE, receiptMedia, { caption: report });
+                }
+
+                await chat.clearState();
+                await message.reply('Asante! Nimepokea screenshot ya malipo yako. Tunakagua... ⏳');
+                console.log(`🧾 [VERIFIED IMG] ${validation.valid ? '✅' : '⚠️'} ${userPhone}`);
+                return;
+            }
+            // Not a receipt image — falls through to AI (product photo, etc.)
+        }
 
         // --- Input length validation (prevent token abuse / Economic DoS) ---
         const MAX_MSG_LENGTH = 1000;
