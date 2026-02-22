@@ -44,8 +44,8 @@ ensureProfile();
  * This ensures that when the owner uploads a new Excel inventory,
  * the AI uses the updated prices immediately — no restart needed.
  */
-export function getShopContext() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+export function getShopContext(profileData) {
+    const profile = profileData || JSON.parse(readFileSync(profilePath, 'utf-8'));
 
     let context = `🏪 DUKA: ${profile.shop_name}\n`;
     context += `💰 MALIPO: ${profile.payment_info}\n`;
