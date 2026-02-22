@@ -740,6 +740,84 @@ client.on('message', async (message) => {
 });
 
 // ============================================================
+// ON-DEMAND IMAGE SEARCH + DOWNLOAD (lazy caching)
+// ============================================================
+async function searchAndDownloadImages(item, count = 3) {
+    const imagesDir = join(__dirname, '..', 'data', 'images');
+    const { mkdirSync, writeFileSync } = await import('fs');
+    mkdirSync(imagesDir, { recursive: true });
+
+    const searchQuery = `${item.brand || ''} ${item.item} product photo`.trim();
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&tbm=isch&ijn=0`;
+
+    const response = await fetch(searchUrl, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Accept-Language': 'en-US,en;q=0.5',
+        },
+    });
+
+    if (!response.ok) throw new Error(`Google returned ${response.status}`);
+
+    const html = await response.text();
+
+    // Extract real image URLs from Google search results
+    const imgRegex = /\["(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)(?:\?[^"]*)?)",\d+,\d+\]/gi;
+    const urls = [];
+    let match;
+    while ((match = imgRegex.exec(html)) !== null && urls.length < count + 3) {
+        const url = match[1];
+        if (!url.includes('gstatic.com') && !url.includes('google.com') && url.length < 500) {
+            urls.push(url);
+        }
+    }
+
+    const downloaded = [];
+    for (let i = 0; i < Math.min(urls.length, count); i++) {
+        const url = urls[i];
+        const ext = url.includes('.png') ? 'png' : 'jpg';
+        const fileName = `${item.id}_${i + 1}.${ext}`;
+        const filePath = join(imagesDir, fileName);
+
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const imgResp = await fetch(url, {
+                signal: controller.signal,
+                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*', 'Referer': 'https://www.google.com/' },
+                redirect: 'follow',
+            });
+            clearTimeout(timeout);
+
+            if (!imgResp.ok) continue;
+            const buffer = Buffer.from(await imgResp.arrayBuffer());
+            if (buffer.length < 2000) continue;
+
+            writeFileSync(filePath, buffer);
+            downloaded.push(fileName);
+            console.log(`   ✅ ${fileName} (${(buffer.length / 1024).toFixed(0)}KB)`);
+        } catch { /* skip failed download */ }
+    }
+
+    // Update product's images array in shop_profile.json
+    if (downloaded.length > 0) {
+        try {
+            const { saveProfile } = await import('./shop.js');
+            const shopData = loadProfile();
+            const product = shopData.inventory.find(p => p.id === item.id);
+            if (product) {
+                product.images = downloaded;
+                saveProfile(shopData);
+                console.log(`💾 [CACHED] ${item.id} → ${downloaded.length} images saved`);
+            }
+        } catch { /* save failed — images still on disk */ }
+    }
+
+    return downloaded;
+}
+
+// ============================================================
 // PROCESS BUFFERED MESSAGES (with typing indicator + human delay)
 // ============================================================
 async function processBufferedMessages(chatKey) {
@@ -994,13 +1072,12 @@ async function processBufferedMessages(chatKey) {
                 const item = getItemById(rawId) || findItemByName(rawId);
                 if (!item) continue;
 
-                const localImages = Array.isArray(item.images) ? item.images
-                    : (item.image_file ? [item.image_file] : []);
+                let localImages = Array.isArray(item.images) ? item.images.filter(f => f) : [];
+                if (localImages.length === 0 && item.image_file) localImages = [item.image_file];
                 let sentAny = false;
 
                 // Try local images first
                 for (const imgFile of localImages) {
-                    if (!imgFile) continue;
                     const imagePath = join(__dirname, '..', 'data', 'images', imgFile);
                     try {
                         const media2 = MessageMedia.fromFilePath(imagePath);
@@ -1009,20 +1086,26 @@ async function processBufferedMessages(chatKey) {
                     } catch { /* file missing */ }
                 }
 
-                // Fallback: download from image_url if no local images sent
-                if (!sentAny && item.image_url) {
+                // On-demand: search Google Images, download, cache, then send
+                if (!sentAny) {
+                    console.log(`🔍 [ON-DEMAND] Searching images for "${item.item}"...`);
                     try {
-                        const media2 = await MessageMedia.fromUrl(item.image_url, { unsafeMime: true });
-                        await client.sendMessage(message.from, media2);
-                        sentAny = true;
-                        console.log(`🌐 [URL IMAGE] ${item.id} → downloaded from URL`);
-                    } catch (urlErr) {
-                        console.error(`❌ [URL IMAGE] Failed for ${item.id}: ${urlErr.message}`);
+                        const downloaded = await searchAndDownloadImages(item);
+                        for (const imgFile of downloaded) {
+                            const imagePath = join(__dirname, '..', 'data', 'images', imgFile);
+                            try {
+                                const media2 = MessageMedia.fromFilePath(imagePath);
+                                await client.sendMessage(message.from, media2);
+                                sentAny = true;
+                            } catch { /* skip */ }
+                        }
+                    } catch (searchErr) {
+                        console.error(`❌ [ON-DEMAND] Search failed for ${item.id}: ${searchErr.message}`);
                     }
                 }
 
                 if (!sentAny) {
-                    console.log(`⚠️ [NO IMAGE] ${item.id} — no local file or URL`);
+                    console.log(`⚠️ [NO IMAGE] ${item.id} — no local file and search failed`);
                 }
             }
             console.log(`🖼️ [SEND IMAGE] ${imgMatches.length} products → ${userPhone}`);
