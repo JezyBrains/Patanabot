@@ -23,6 +23,12 @@ import { updateInventoryFromText } from './admin.js';
 
 dotenv.config();
 
+// --- Helper: Mask Phone Numbers ---
+function maskPhone(phone) {
+    if (!phone || phone.length < 5) return '***';
+    return `${phone.slice(0, 3)}...${phone.slice(-2)}`;
+}
+
 // Normalize OWNER_PHONE — strip '+' if present
 const OWNER_PHONE = (process.env.OWNER_PHONE || '').replace(/^\+/, '');
 console.log(`👤 Owner phone: ${OWNER_PHONE || '(not set)'}`);
@@ -148,7 +154,7 @@ function startStockCheck(customerPhone, item, chatId) {
                 `Tunaipata? Jibu *NDIYO* au *HAPANA*\n\n` +
                 `${reminders === 3 ? '⚠️ Hii ni reminder ya mwisho! Baada ya dakika 3 nitamwambia mteja haina.' : ''}`
             );
-            console.log(`📦 [STOCK CHECK #${reminders}] Reminder sent to owner for "${item}" (customer: ${customerPhone})`);
+            console.log(`📦 [STOCK CHECK #${reminders}] Reminder sent to owner for "${item}" (customer: ${maskPhone(customerPhone)})`);
         }
 
         // After 3 reminders (9 minutes total), auto-respond OOS
@@ -166,7 +172,7 @@ ONYO KALI: USIMPE bidhaa tofauti (earphones/charger kwa mtu anayetaka simu = DHA
                     let cleanResponse = oosResponse.replace(OOS_TAG_REGEX, '').replace(CHECK_STOCK_TAG_REGEX, '').trim();
                     await client.sendMessage(chatId, cleanResponse);
                     saveMissedOpportunity(item);
-                    console.log(`📉 [OOS AUTO] "${item}" — owner didn't reply, sent alternatives to ${customerPhone}`);
+                    console.log(`📉 [OOS AUTO] "${item}" — owner didn't reply, sent alternatives to ${maskPhone(customerPhone)}`);
                     clearStockCheck(customerPhone);
                 }
             }, STOCK_CHECK_REMINDER_MS);
@@ -202,14 +208,14 @@ client.on('message', async (message) => {
         // Dedup: WhatsApp sometimes fires same message twice
         const msgId = message.id?._serialized || message.id?.id || `${message.from}_${message.timestamp}`;
         if (recentMessageIds.has(msgId)) {
-            console.log(`🔁 [DEDUP] Dropped duplicate: ${msgId.slice(-12)} from ${message.from.slice(0, 6)}`);
+            console.log(`🔁 [DEDUP] Dropped duplicate: ${msgId.slice(-12)} from ${maskPhone(message.from.replace('@c.us', ''))}`);
             return;
         }
         recentMessageIds.add(msgId);
         setTimeout(() => recentMessageIds.delete(msgId), 15000);
 
         // Debug: log every message that passes filters
-        console.log(`📨 [INTAKE] type=${message.type} from=${message.from.slice(0, 6)} hasMedia=${message.hasMedia} body="${(message.body || '').slice(0, 40)}"`);
+        console.log(`📨 [INTAKE] type=${message.type} from=${maskPhone(message.from.replace('@c.us', ''))} hasMedia=${message.hasMedia}`);
 
         // ============================================================
         // OWNER ADMIN PANEL
@@ -510,7 +516,7 @@ client.on('message', async (message) => {
                         let clean = confirmMsg.replace(PENDING_PAYMENT_TAG_REGEX, '').replace(ALERT_TAG_REGEX, '').trim();
                         await client.sendMessage(`${targetPhone}@c.us`, clean);
                         await message.reply(`✅ Order imefungwa! ${targetPhone} — "${itemName}" @ TZS ${pending.price}`);
-                        console.log(`✅ [ORDER CLOSED] ${itemName} @ TZS ${pending.price} → ${pending.location}`);
+                        console.log(`✅ [ORDER CLOSED] ${itemName} @ TZS ${pending.price} → [LOCATION]`);
                     } else {
                         // KATAA — payment rejected, restore stock
                         restoreStock(pending.itemId);
@@ -523,7 +529,7 @@ client.on('message', async (message) => {
                         let clean = rejectMsg.replace(PENDING_PAYMENT_TAG_REGEX, '').replace(ALERT_TAG_REGEX, '').trim();
                         await client.sendMessage(`${targetPhone}@c.us`, clean);
                         await message.reply(`❌ Malipo ya ${targetPhone} yamekataliwa. Stock imerejeshwa.`);
-                        console.log(`❌ [PAYMENT REJECTED] ${targetPhone} — stock restored`);
+                        console.log(`❌ [PAYMENT REJECTED] ${maskPhone(targetPhone)} — stock restored`);
                     }
 
                     // --- Owner reply: NDIYO/HAPANA for stock check ---
@@ -596,7 +602,7 @@ client.on('message', async (message) => {
                         await client.sendMessage(`${targetPhone}@c.us`, cleanResponse);
                         await message.reply(`✅ Mteja ${targetPhone}:\n\n"${cleanResponse.substring(0, 150)}..."`);
                         activeEscalations.delete(targetPhone);
-                        console.log(`🔑 [BOSS → ${targetPhone}] "${text.substring(0, 50)}"`);
+                        console.log(`🔑 [BOSS → ${maskPhone(targetPhone)}] "${text.substring(0, 50)}"`);
                     } else {
                         // No active escalation — show help
                         await message.reply(
@@ -632,7 +638,7 @@ client.on('message', async (message) => {
 
         // Check pause status
         if (!isBotActive(userPhone)) {
-            console.log(`⏸️ [PAUSED] Ignoring ${userPhone} — owner handling`);
+            console.log(`⏸️ [PAUSED] Ignoring ${maskPhone(userPhone)} — owner handling`);
             return;
         }
 
@@ -640,7 +646,7 @@ client.on('message', async (message) => {
         const now = Date.now();
         const trollExpiry = trollCooldown.get(userPhone);
         if (trollExpiry && now < trollExpiry) {
-            console.log(`🚫 [TROLL COOLDOWN] ${userPhone} — ignored (${Math.round((trollExpiry - now) / 60000)}m left)`);
+            console.log(`🚫 [TROLL COOLDOWN] ${maskPhone(userPhone)} — ignored (${Math.round((trollExpiry - now) / 60000)}m left)`);
             return;
         }
         if (trollExpiry && now >= trollExpiry) {
@@ -659,7 +665,7 @@ client.on('message', async (message) => {
             /umejifunza vizuri/i,
         ];
         if (text && BOT_PATTERNS.some(p => p.test(text))) {
-            console.log(`🤖 [BOT FILTER] Ignored automated message from ${userPhone}`);
+            console.log(`🤖 [BOT FILTER] Ignored automated message from ${maskPhone(userPhone)}`);
             return;
         }
 
@@ -669,9 +675,9 @@ client.on('message', async (message) => {
         if (message.hasMedia) {
             try {
                 media = await message.downloadMedia();
-                console.log(`📎 [MEDIA] ${media.mimetype}${isVoiceNote ? ' 🎤 VOICE' : ''} from ${userPhone}`);
+                console.log(`📎 [MEDIA] ${media.mimetype}${isVoiceNote ? ' 🎤 VOICE' : ''} from ${maskPhone(userPhone)}`);
             } catch (err) {
-                console.error(`❌ Media download failed for ${userPhone}:`, err.message);
+                console.error(`❌ Media download failed for ${maskPhone(userPhone)}:`, err.message);
             }
         }
 
@@ -679,13 +685,13 @@ client.on('message', async (message) => {
 
         // Get customer profile for logging
         const profile = getCustomerProfile(userPhone);
-        console.log(`\n📩 [${userPhone}] ${profile.label}: ${text || '[Media Only]'}`);
+        console.log(`\n📩 [${maskPhone(userPhone)}] ${profile.label}: [REDACTED MESSAGE]`);
 
         // DEMO hook
         if (text.toUpperCase() === 'DEMO') {
             const demoReply = `Habari Boss! 👋 Mimi ni PatanaBot Enterprise — Muuzaji wa AI 24/7.\n\n🧠 Napatana bei\n📸 Ninapokea picha\n🎤 Ninaelewa voice notes\n💰 Ninafunga oda automatically\n\nJaribu: Uliza bei ya AirPods au tuma picha ya simu!`;
             await message.reply(demoReply);
-            console.log(`🎯 [DEMO] → ${userPhone}`);
+            console.log(`🎯 [DEMO] → ${maskPhone(userPhone)}`);
             return;
         }
 
@@ -699,7 +705,7 @@ client.on('message', async (message) => {
             if (isVoiceNote) existing.isVoice = true;
             existing.message = message; // Keep latest message for reply
             clearTimeout(existing.timer);
-            console.log(`📝 [BUFFER] +1 from ${userPhone} (${existing.texts.length} msgs buffered)`);
+            console.log(`📝 [BUFFER] +1 from ${maskPhone(userPhone)} (${existing.texts.length} msgs buffered)`);
         } else {
             // Start new buffer
             messageBuffers.set(chatKey, {
@@ -740,7 +746,7 @@ async function processBufferedMessages(chatKey) {
         const profile = getCustomerProfile(userPhone);
 
         if (texts.length > 1) {
-            console.log(`📦 [COMBINED] ${texts.length} msgs from ${userPhone}: "${combinedText.slice(0, 60)}"`);
+            console.log(`📦 [COMBINED] ${texts.length} msgs from ${maskPhone(userPhone)}`);
         }
 
         // Show "typing..." indicator
@@ -769,7 +775,7 @@ async function processBufferedMessages(chatKey) {
                     `💡 *Reply hii meseji* na maelekezo yako!`
                 );
 
-                console.log(`🚨 [ALERT #${escCount}] ${userPhone}: ${summary}`);
+                console.log(`🚨 [ALERT #${escCount}] ${maskPhone(userPhone)}: ${summary}`);
             }
         }
 
@@ -804,7 +810,7 @@ async function processBufferedMessages(chatKey) {
                     `💰 *PENDING PAYMENT:*\n+${userPhone} (${profile2.label})\nBidhaa: ${itemName}\nBei: TZS ${price.trim()}\nLocation: ${location.trim()}\n\n_Mteja anatuma muamala._`
                 );
             }
-            console.log(`💰 [PENDING] ${itemId} @ TZS ${price} → ${location}`);
+            console.log(`💰 [PENDING] ${itemId} @ TZS ${price} → [LOCATION]`);
         }
 
         // --- ORDER_CLOSED (backward compat) ---
@@ -816,7 +822,7 @@ async function processBufferedMessages(chatKey) {
             const curRating = getCustomerRating(userPhone);
             if (curRating < 5) setCustomerRating(userPhone, Math.min(5, curRating + 1));
             resetEscalation(userPhone);
-            console.log(`✅ [ORDER CLOSED] ${item} @ ${price} → ${location}`);
+            console.log(`✅ [ORDER CLOSED] ${item} @ ${price} → [LOCATION]`);
         }
 
         // --- RECEIPT UPLOADED Interceptor ---
@@ -831,7 +837,7 @@ async function processBufferedMessages(chatKey) {
                 await client.sendMessage(OWNER_PHONE,
                     `🧾 *RECEIPT UPLOADED:*\n+${userPhone} (${profile2.label})\nBidhaa: ${itemName}\nBei: TZS ${pending.price}\n\n_THIBITISHA au KATAA_`
                 );
-                console.log(`🧾 [RECEIPT] ${userPhone} → ${itemName}`);
+                console.log(`🧾 [RECEIPT] ${maskPhone(userPhone)} → ${itemName}`);
             }
         }
 
@@ -873,7 +879,7 @@ async function processBufferedMessages(chatKey) {
                     );
                 } catch { }
             }, TROLL_COOLDOWN_MS);
-            console.log(`🚫 [TROLL] ${userPhone} — 30min cooldown`);
+            console.log(`🚫 [TROLL] ${maskPhone(userPhone)} — 30min cooldown`);
         }
 
         // --- Human delay: simulate reading + typing (1-4 seconds) ---
@@ -901,7 +907,7 @@ async function processBufferedMessages(chatKey) {
                     }
                 }
             }
-            console.log(`🖼️ [SEND IMAGE] ${imgMatches.length} products → ${userPhone}`);
+            console.log(`🖼️ [SEND IMAGE] ${imgMatches.length} products → ${maskPhone(userPhone)}`);
         } else if (isVoice && isVoiceEnabled()) {
             // Voice note customer → reply with voice ONLY (text as fallback)
             try {
@@ -909,7 +915,7 @@ async function processBufferedMessages(chatKey) {
                 if (audioBuffer) {
                     const voiceMedia = new MessageMedia('audio/ogg; codecs=opus', audioBuffer.toString('base64'), 'voice.ogg');
                     await client.sendMessage(message.from, voiceMedia, { sendAudioAsVoice: true });
-                    console.log(`🎤 [VOICE ONLY] → ${userPhone}`);
+                    console.log(`🎤 [VOICE ONLY] → ${maskPhone(userPhone)}`);
                 } else {
                     // TTS returned null — send text instead
                     await message.reply(aiResponse);
@@ -923,7 +929,7 @@ async function processBufferedMessages(chatKey) {
             await message.reply(aiResponse);
         }
 
-        console.log(`🤖 [PatanaBot → ${userPhone}]: ${aiResponse.substring(0, 80)}...`);
+        console.log(`🤖 [PatanaBot → ${maskPhone(userPhone)}]: [AI RESPONSE REDACTED]`);
 
     } catch (error) {
         console.error('❌ [PROCESS] Error:', error.message);
