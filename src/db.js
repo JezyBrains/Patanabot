@@ -4,7 +4,8 @@ import { mkdirSync } from 'fs';
 // Ensure data directory exists
 mkdirSync('data', { recursive: true });
 
-const db = new Database('data/patana.db');
+const dbPath = process.env.DB_PATH || 'data/patana.db';
+const db = new Database(dbPath);
 
 // Enable WAL mode for better concurrent performance
 db.pragma('journal_mode = WAL');
@@ -29,6 +30,13 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS missed_opportunities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     item_requested TEXT,
+    date DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT,
+    direction TEXT DEFAULT 'in',
     date DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
@@ -187,6 +195,17 @@ export function getCustomerProfile(phone) {
   else label = '🔴 Hatari';
 
   return { rating: r, escalations: row.escalation_count, label };
+}
+
+// --- Enterprise: Analytics / Logging ---
+
+/**
+ * Log a message for analytics
+ * @param {string} phone - Customer phone number
+ * @param {string} direction - 'in' (incoming) or 'out' (outgoing)
+ */
+export function logMessage(phone, direction = 'in') {
+  db.prepare('INSERT INTO messages (phone, direction) VALUES (?, ?)').run(phone, direction);
 }
 
 // --- Enterprise: Missed Opportunities ---

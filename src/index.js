@@ -12,7 +12,12 @@ import {
     saveMissedOpportunity, getDailySummary,
     getEscalationCount, incrementEscalation, resetEscalation,
     getCustomerRating, setCustomerRating, getCustomerProfile,
+    logMessage,
 } from './db.js';
+import {
+    getWeeklySummary, getTopProducts, getTopMissed,
+    getCustomerSegments, getConversionRate, getPeakHours
+} from './analytics.js';
 import { shopName, getInventoryList, deductStock, restoreStock, getItemById, getInventoryIds, updatePaymentInfo, setPaymentPolicy, getPaymentPolicy, addQuickProduct, addProductImage, findItemByName } from './shop.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -473,6 +478,37 @@ client.on('message', async (message) => {
                         await message.reply('❌ Mfano: _PROFILE: 255743726397_');
                     }
 
+                    // --- RIPOTI: Business Intelligence ---
+                } else if (upper.startsWith('RIPOTI')) {
+                    const days = parseInt(text.split(' ')[1]) || 7;
+                    const summary = getWeeklySummary();
+                    const topProducts = getTopProducts(days);
+                    const topMissed = getTopMissed(days);
+                    const segments = getCustomerSegments();
+                    const conversion = getConversionRate(days);
+                    const peakHours = getPeakHours(days);
+
+                    let report = `📊 *RIPOTI YA BIASHARA* 📊\n\n`;
+                    report += `💰 *Revenue (7d):* TZS ${summary.revenue.toLocaleString()}\n`;
+                    report += `📦 *Orders (7d):* ${summary.orderCount} (Avg: ${summary.avgOrderValue})\n`;
+                    report += `📈 *Conversion (Last ${days}d):* ${conversion.conversionRate}\n\n`;
+
+                    report += `🏆 *Top Bidhaa (Last ${days}d):*\n`;
+                    topProducts.forEach((p, i) => report += `${i+1}. ${p.item} (${p.qty})\n`);
+                    if (topProducts.length === 0) report += `_Hakuna data_\n`;
+
+                    report += `\n📉 *Demand Signals (Missed):*\n`;
+                    topMissed.forEach((p, i) => report += `${i+1}. ${p.item} (${p.qty})\n`);
+                    if (topMissed.length === 0) report += `_Hakuna data_\n`;
+
+                    report += `\n👥 *Wateja:*\n`;
+                    segments.forEach(s => report += `${s.label}: ${s.count}\n`);
+
+                    report += `\n⏰ *Peak Hours (Last ${days}d):*\n`;
+                    peakHours.forEach(p => report += `${p.hour}:00 - ${p.count} msgs\n`);
+
+                    await message.reply(report);
+
                     // --- Owner reply: THIBITISHA/KATAA for payment verification ---
                 } else if (pendingPayments.size > 0 && (upper === 'THIBITISHA' || upper === 'KATAA')) {
                     let targetPhone = null;
@@ -628,6 +664,9 @@ client.on('message', async (message) => {
         const contact = await message.getContact();
         const userPhone = contact.number;
         const chatKey = message.from; // Use message.from consistently (255xxx@c.us)
+
+        // Log message for analytics
+        logMessage(userPhone, 'in');
 
         // Check pause status
         if (!isBotActive(userPhone)) {
@@ -904,12 +943,28 @@ cron.schedule('0 20 * * *', async () => {
         if (!OWNER_PHONE) return;
 
         const summary = getDailySummary();
-        const report =
+        const topProducts = getTopProducts(1);
+        const topMissed = getTopMissed(1);
+
+        let report =
             `📊 *RIPOTI YA LEO* 📊\n\n` +
             `✅ Oda: ${summary.orderCount}\n` +
             `💰 Mapato: TZS ${summary.totalRevenue.toLocaleString()}\n` +
-            `📉 Bidhaa Zinazotafutwa: ${summary.missedItems}\n\n` +
-            `Pumzika boss, nipo zamu! 🤖💼`;
+            `📉 Bidhaa Zinazotafutwa: ${summary.missedItems}\n\n`;
+
+        if (topProducts.length > 0) {
+            report += `🏆 *Top Bidhaa Leo:*\n`;
+            topProducts.forEach((p, i) => report += `${i+1}. ${p.item} (${p.qty})\n`);
+            report += `\n`;
+        }
+
+        if (topMissed.length > 0) {
+            report += `⚠️ *Top Missed (Demand):*\n`;
+            topMissed.forEach((p, i) => report += `${i+1}. ${p.item} (${p.qty})\n`);
+            report += `\n`;
+        }
+
+        report += `Pumzika boss, nipo zamu! 🤖💼`;
 
         await client.sendMessage(OWNER_PHONE, report);
         console.log('📊 [DAILY REPORT] Sent');
