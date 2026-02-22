@@ -741,37 +741,82 @@ client.on('message', async (message) => {
 
 // ============================================================
 // ON-DEMAND IMAGE SEARCH + DOWNLOAD (lazy caching)
+// Uses DuckDuckGo → Bing → Google fallback chain
 // ============================================================
+
+/** Search DuckDuckGo Images (no API key, lenient rate limits) */
+async function searchDuckDuckGo(query, count = 5) {
+    // Step 1: Get vqd token
+    const tokenResp = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&iax=images&ia=images`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36' },
+    });
+    const tokenHtml = await tokenResp.text();
+    const vqdMatch = tokenHtml.match(/vqd=['"]([^'"]+)['"]/);
+    if (!vqdMatch) throw new Error('No DDG token');
+
+    // Step 2: Fetch image results
+    const imgResp = await fetch(
+        `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${vqdMatch[1]}&f=,,,,,&p=1`,
+        { headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36', 'Referer': 'https://duckduckgo.com/' } }
+    );
+    if (!imgResp.ok) throw new Error(`DDG returned ${imgResp.status}`);
+
+    const data = await imgResp.json();
+    return (data.results || [])
+        .filter(r => r.image && !r.image.includes('gstatic') && r.width > 200)
+        .slice(0, count)
+        .map(r => r.image);
+}
+
+/** Search Bing Images (fallback, no API key) */
+async function searchBingImages(query, count = 5) {
+    const resp = await fetch(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}&first=1`, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html',
+        },
+    });
+    if (!resp.ok) throw new Error(`Bing returned ${resp.status}`);
+
+    const html = await resp.text();
+    const urls = [];
+    // Bing embeds image URLs in murl parameter
+    const regex = /murl&quot;:&quot;(https?:\/\/[^&]+\.(?:jpg|jpeg|png|webp)[^&]*)&quot;/gi;
+    let match;
+    while ((match = regex.exec(html)) !== null && urls.length < count) {
+        const url = decodeURIComponent(match[1]);
+        if (url.length < 500) urls.push(url);
+    }
+    return urls;
+}
+
 async function searchAndDownloadImages(item, count = 3) {
     const imagesDir = join(__dirname, '..', 'data', 'images');
     const { mkdirSync, writeFileSync } = await import('fs');
     mkdirSync(imagesDir, { recursive: true });
 
     const searchQuery = `${item.brand || ''} ${item.item} product photo`.trim();
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&tbm=isch&ijn=0`;
 
-    const response = await fetch(searchUrl, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml',
-            'Accept-Language': 'en-US,en;q=0.5',
-        },
-    });
+    // Try search engines in order: DuckDuckGo → Bing → Google
+    let urls = [];
+    const engines = [
+        { name: 'DuckDuckGo', fn: () => searchDuckDuckGo(searchQuery, count + 2) },
+        { name: 'Bing', fn: () => searchBingImages(searchQuery, count + 2) },
+    ];
 
-    if (!response.ok) throw new Error(`Google returned ${response.status}`);
-
-    const html = await response.text();
-
-    // Extract real image URLs from Google search results
-    const imgRegex = /\["(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)(?:\?[^"]*)?)",\d+,\d+\]/gi;
-    const urls = [];
-    let match;
-    while ((match = imgRegex.exec(html)) !== null && urls.length < count + 3) {
-        const url = match[1];
-        if (!url.includes('gstatic.com') && !url.includes('google.com') && url.length < 500) {
-            urls.push(url);
+    for (const engine of engines) {
+        try {
+            urls = await engine.fn();
+            if (urls.length > 0) {
+                console.log(`   🔍 ${engine.name}: found ${urls.length} images`);
+                break;
+            }
+        } catch (err) {
+            console.log(`   ⚠️ ${engine.name} failed: ${err.message}`);
         }
     }
+
+    if (urls.length === 0) throw new Error('All search engines failed');
 
     const downloaded = [];
     for (let i = 0; i < Math.min(urls.length, count); i++) {
@@ -785,7 +830,7 @@ async function searchAndDownloadImages(item, count = 3) {
             const timeout = setTimeout(() => controller.abort(), 10000);
             const imgResp = await fetch(url, {
                 signal: controller.signal,
-                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*', 'Referer': 'https://www.google.com/' },
+                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' },
                 redirect: 'follow',
             });
             clearTimeout(timeout);
@@ -800,7 +845,7 @@ async function searchAndDownloadImages(item, count = 3) {
         } catch { /* skip failed download */ }
     }
 
-    // Update product's images array in shop_profile.json
+    // Cache: update product's images array in shop_profile.json
     if (downloaded.length > 0) {
         try {
             const { saveProfile } = await import('./shop.js');
