@@ -10,6 +10,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // --- Tiered Model System ---
 const FLASH_MODEL = process.env.FLASH_MODEL || 'gemini-2.0-flash';
 const PRO_MODEL = process.env.PRO_MODEL || 'gemini-2.5-pro';
+const _modelCache = {}; // Cache model instances to avoid re-instantiation
 
 // Keywords/patterns that trigger the Pro model (complex reasoning needed)
 const PRO_TRIGGERS = [
@@ -264,11 +265,16 @@ export async function generateResponse(userPhone, prompt, media = null) {
         const tier = selectModel(prompt, cleanHistory);
         const modelName = tier === 'pro' ? PRO_MODEL : FLASH_MODEL;
 
-        // Build model with FRESH inventory on every call
-        const model = genAI.getGenerativeModel({
-            model: modelName,
-            systemInstruction: buildSystemInstruction(),
-        });
+        // Reuse cached model instance if system instruction hasn't changed
+        const sysInstruction = buildSystemInstruction();
+        const cacheKey = modelName;
+        if (!_modelCache[cacheKey] || _modelCache[cacheKey].sysHash !== sysInstruction.length) {
+            _modelCache[cacheKey] = {
+                model: genAI.getGenerativeModel({ model: modelName, systemInstruction: sysInstruction }),
+                sysHash: sysInstruction.length,
+            };
+        }
+        const model = _modelCache[cacheKey].model;
 
         console.log(`🧠 [${tier.toUpperCase()}] ${modelName} → ${userPhone.slice(0, 6)}...`);
 
