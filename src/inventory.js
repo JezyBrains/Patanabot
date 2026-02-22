@@ -1,11 +1,10 @@
 import * as xlsx from 'xlsx';
-import { readFileSync, writeFileSync } from 'fs';
+import { loadProfile, saveProfile } from './shop.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const profilePath = join(__dirname, '..', 'data', 'shop_profile.json');
 
 /**
  * Generate an Excel template for bulk product import.
@@ -129,7 +128,7 @@ export function updateInventoryFromExcel(base64Data) {
     }
 
     // Read existing shop profile and MERGE (don't replace)
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     const existingIds = new Set(profile.inventory.map(i => i.id));
 
     let added = 0, updated = 0;
@@ -147,7 +146,7 @@ export function updateInventoryFromExcel(base64Data) {
         }
     }
 
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    saveProfile(profile);
     console.log(`📦 EXCEL IMPORT: ${added} added, ${updated} updated (${profile.inventory.length} total)`);
 
     return { added, updated, total: profile.inventory.length };
@@ -167,7 +166,7 @@ export function bulkImportFromText(text) {
         throw new Error('Hakuna bidhaa! Kila mstari = bidhaa moja.');
     }
 
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     let added = 0, updated = 0;
 
     for (const line of lines) {
@@ -212,7 +211,7 @@ export function bulkImportFromText(text) {
         }
     }
 
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    saveProfile(profile);
     console.log(`📦 TEXT IMPORT: ${added} added, ${updated} updated (${profile.inventory.length} total)`);
 
     return { added, updated, total: profile.inventory.length };
