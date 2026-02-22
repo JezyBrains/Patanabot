@@ -919,10 +919,10 @@ async function processBufferedMessages(chatKey) {
                     : (item?.image_file ? [item.image_file] : []);
                 for (const imgFile of images) {
                     const imagePath = join(__dirname, '..', 'data', 'images', imgFile);
-                    if (existsSync(imagePath)) {
+                    try {
                         const media2 = MessageMedia.fromFilePath(imagePath);
                         await client.sendMessage(message.from, media2);
-                    }
+                    } catch { /* file missing — skip */ }
                 }
             }
             console.log(`🖼️ [SEND IMAGE] ${imgMatches.length} products → ${userPhone}`);
