@@ -5,7 +5,8 @@
   "description": "PatanaBot - B2B AI Sales Negotiator for Tanzanian Retail Businesses",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "node --test tests/*.js"
   },
   "keywords": [
     "whatsapp",
