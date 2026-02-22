@@ -233,4 +233,17 @@ export function getDailySummary() {
   };
 }
 
+/**
+ * Close the database connection gracefully.
+ */
+export function closeDb() {
+  console.log('🔒 Closing database connection...');
+  try {
+    db.close();
+    console.log('✅ Database closed successfully.');
+  } catch (err) {
+    console.error('❌ Error closing database:', err.message);
+  }
+}
+
 export default db;
