@@ -39,13 +39,27 @@ function ensureProfile() {
 // Run on module load
 ensureProfile();
 
+// --- In-memory cache (avoids blocking readFileSync on every AI call) ---
+let _profileCache = null;
+
+function loadProfile() {
+    if (!_profileCache) {
+        _profileCache = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    }
+    return _profileCache;
+}
+
+function saveProfile(profile) {
+    _profileCache = profile;
+    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+}
+
 /**
- * Dynamically reads the shop profile from disk on EVERY call.
- * This ensures that when the owner uploads a new Excel inventory,
- * the AI uses the updated prices immediately — no restart needed.
+ * Dynamically reads the shop profile (cached in memory).
+ * Cache is invalidated on every write via saveProfile().
  */
 export function getShopContext() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
 
     let context = `🏪 DUKA: ${profile.shop_name}\n`;
     context += `💰 MALIPO: ${profile.payment_info}\n`;
@@ -77,7 +91,7 @@ export function getShopContext() {
  * Get the shop name (read fresh from disk)
  */
 export function getShopName() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     return profile.shop_name;
 }
 
@@ -89,7 +103,7 @@ export const shopName = initialProfile.shop_name;
  * Get a formatted inventory list for owner display via WhatsApp
  */
 export function getInventoryList() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     const items = profile.inventory;
 
     if (!items || items.length === 0) return '📦 Stoo iko tupu! Tuma Excel au andika STOO: kuongeza bidhaa.';
@@ -128,7 +142,7 @@ export function getInventoryList() {
  * Get an item by its ID
  */
 export function getItemById(itemId) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     return profile.inventory.find(i => i.id === itemId) || null;
 }
 
@@ -137,7 +151,7 @@ export function getItemById(itemId) {
  * Owner types "picha: maji" → finds "Maji ya Uhai"
  */
 export function findItemByName(query) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     const q = query.toLowerCase().trim();
     // Try exact ID first
     const byId = profile.inventory.find(i => i.id === q);
@@ -156,11 +170,11 @@ export function findItemByName(query) {
  * Deduct stock by 1. Returns true if successful, false if out of stock.
  */
 export function deductStock(itemId) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     const item = profile.inventory.find(i => i.id === itemId);
     if (!item || (item.stock_qty !== undefined && item.stock_qty <= 0)) return false;
     if (item.stock_qty !== undefined) item.stock_qty -= 1;
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    saveProfile(profile);
     console.log(`📦 [STOCK] ${item.item}: ${item.stock_qty} remaining`);
     return true;
 }
@@ -169,11 +183,11 @@ export function deductStock(itemId) {
  * Restore stock by 1 (failed payment / cancelled order).
  */
 export function restoreStock(itemId) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     const item = profile.inventory.find(i => i.id === itemId);
     if (!item) return false;
     if (item.stock_qty !== undefined) item.stock_qty += 1;
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    saveProfile(profile);
     console.log(`📦 [STOCK RESTORED] ${item.item}: ${item.stock_qty} now`);
     return true;
 }
@@ -182,16 +196,15 @@ export function restoreStock(itemId) {
  * Add an image to a product's images array (supports multiple photos)
  */
 export function addProductImage(itemId, fileName) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     const item = profile.inventory.find(i => i.id === itemId);
     if (!item) return false;
-    // Migrate from old image_file string to images array
     if (!Array.isArray(item.images)) {
         item.images = item.image_file ? [item.image_file] : [];
         delete item.image_file;
     }
     item.images.push(fileName);
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    saveProfile(profile);
     return true;
 }
 
@@ -201,20 +214,17 @@ export function addProductImage(itemId, fileName) {
  * Returns { item, isNew } or throws error.
  */
 export function addQuickProduct(name, floorPrice, stockQty, unit) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
 
-    // Generate ID from name: "Maji ya Uhai" → "maji_ya_uhai"
     const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
-    // Check if product already exists
     const existing = profile.inventory.find(i => i.id === id);
     if (existing) {
-        // Update stock and price if exists
         existing.secret_floor_price = floorPrice;
-        existing.public_price = Math.round(floorPrice * 1.3); // 30% markup
+        existing.public_price = Math.round(floorPrice * 1.3);
         existing.stock_qty = stockQty;
         if (unit) existing.condition = unit;
-        writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+        saveProfile(profile);
         return { item: existing, isNew: false };
     }
 
@@ -231,7 +241,7 @@ export function addQuickProduct(name, floorPrice, stockQty, unit) {
         images: [],
     };
     profile.inventory.push(newItem);
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    saveProfile(profile);
     return { item: newItem, isNew: true };
 }
 
@@ -239,7 +249,7 @@ export function addQuickProduct(name, floorPrice, stockQty, unit) {
  * Get all inventory IDs for owner display
  */
 export function getInventoryIds() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     return profile.inventory.map(i => `• ${i.id} → ${i.item}`).join('\n');
 }
 
@@ -247,9 +257,9 @@ export function getInventoryIds() {
  * Update payment info (M-Pesa, bank, etc.)
  */
 export function updatePaymentInfo(newInfo) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     profile.payment_info = newInfo;
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    saveProfile(profile);
     return true;
 }
 
@@ -257,9 +267,9 @@ export function updatePaymentInfo(newInfo) {
  * Set payment policy: 'pay_first' or 'pay_on_delivery'
  */
 export function setPaymentPolicy(policy) {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
-    profile.payment_policy = policy; // 'pay_first' or 'pay_on_delivery'
-    writeFileSync(profilePath, JSON.stringify(profile, null, 4), 'utf-8');
+    const profile = loadProfile();
+    profile.payment_policy = policy;
+    saveProfile(profile);
     return true;
 }
 
@@ -267,6 +277,6 @@ export function setPaymentPolicy(policy) {
  * Get current payment policy
  */
 export function getPaymentPolicy() {
-    const profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    const profile = loadProfile();
     return profile.payment_policy || 'pay_first';
 }
