@@ -886,6 +886,7 @@ async function processBufferedMessages(chatKey) {
 
         // --- Send reply ---
         if (imgMatches.length > 0) {
+            // Image response — always text + images
             if (aiResponse.length > 0) await message.reply(aiResponse);
             for (const match of imgMatches) {
                 const rawId = match[1].trim();
@@ -901,25 +902,28 @@ async function processBufferedMessages(chatKey) {
                 }
             }
             console.log(`🖼️ [SEND IMAGE] ${imgMatches.length} products → ${userPhone}`);
-        } else {
-            await message.reply(aiResponse);
-        }
-
-        console.log(`🤖 [PatanaBot → ${userPhone}]: ${aiResponse.substring(0, 80)}...`);
-
-        // Voice reply: if customer sent voice note
-        if (isVoice && isVoiceEnabled()) {
+        } else if (isVoice && isVoiceEnabled()) {
+            // Voice note customer → reply with voice ONLY (text as fallback)
             try {
                 const audioBuffer = await textToVoiceNote(aiResponse);
                 if (audioBuffer) {
                     const voiceMedia = new MessageMedia('audio/ogg; codecs=opus', audioBuffer.toString('base64'), 'voice.ogg');
                     await client.sendMessage(message.from, voiceMedia, { sendAudioAsVoice: true });
-                    console.log(`🎤 [VOICE REPLY] → ${userPhone}`);
+                    console.log(`🎤 [VOICE ONLY] → ${userPhone}`);
+                } else {
+                    // TTS returned null — send text instead
+                    await message.reply(aiResponse);
                 }
             } catch (ttsErr) {
-                console.error(`❌ [TTS] Voice reply failed: ${ttsErr.message}`);
+                console.error(`❌ [TTS] Failed, sending text: ${ttsErr.message}`);
+                await message.reply(aiResponse);
             }
+        } else {
+            // Regular text customer → text reply
+            await message.reply(aiResponse);
         }
+
+        console.log(`🤖 [PatanaBot → ${userPhone}]: ${aiResponse.substring(0, 80)}...`);
 
     } catch (error) {
         console.error('❌ [PROCESS] Error:', error.message);
