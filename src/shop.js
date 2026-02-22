@@ -4,7 +4,15 @@ import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const profilePath = join(__dirname, '..', 'data', 'shop_profile.json');
+let profilePath = join(__dirname, '..', 'data', 'shop_profile.json');
+
+/**
+ * Updates the profile path for testing purposes.
+ * @param {string} newPath - The new path to the shop profile JSON file.
+ */
+export function setProfilePathForTesting(newPath) {
+    profilePath = newPath;
+}
 
 // --- Default shop profile (created on first Docker boot) ---
 const DEFAULT_PROFILE = {
