@@ -52,6 +52,15 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id)
   );
+
+  CREATE TABLE IF NOT EXISTS token_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT NOT NULL,
+    model TEXT NOT NULL,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migrate: add new columns if missing (safe for existing DBs)
@@ -311,6 +320,44 @@ export function getRecentOrderByPhone(phone) {
   return db.prepare(`
         SELECT * FROM orders WHERE phone = ? ORDER BY created_at DESC LIMIT 1
     `).get(phone);
+}
+
+// ============================================================
+// TOKEN USAGE TRACKING
+// ============================================================
+
+export function logTokenUsage(phone, model, inputTokens, outputTokens) {
+  db.prepare(`INSERT INTO token_usage (phone, model, input_tokens, output_tokens) VALUES (?, ?, ?, ?)`)
+    .run(phone, model, inputTokens || 0, outputTokens || 0);
+}
+
+/** Get usage per client (today, this week, all time) */
+export function getTokenUsageSummary() {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+
+  const allTime = db.prepare(`
+        SELECT phone, 
+               SUM(input_tokens) as total_input,
+               SUM(output_tokens) as total_output,
+               COUNT(*) as requests
+        FROM token_usage GROUP BY phone ORDER BY total_input DESC
+    `).all();
+
+  const todayUsage = db.prepare(`
+        SELECT phone,
+               SUM(input_tokens) as total_input,
+               SUM(output_tokens) as total_output,
+               COUNT(*) as requests
+        FROM token_usage WHERE DATE(created_at) = ? GROUP BY phone ORDER BY total_input DESC
+    `).all(today);
+
+  const totals = db.prepare(`
+        SELECT SUM(input_tokens) as total_input, SUM(output_tokens) as total_output, COUNT(*) as requests
+        FROM token_usage
+    `).get();
+
+  return { allTime, todayUsage, totals };
 }
 
 export default db;

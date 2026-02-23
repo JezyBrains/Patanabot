@@ -17,7 +17,7 @@ import {
     getCustomerRating, setCustomerRating, getCustomerProfile,
     addDriver, getDriverByName, listDrivers, removeDriver,
     createDelivery, getActiveDeliveryByCustomer, getActiveDeliveryByDriver,
-    updateDeliveryStatus, getRecentOrderByPhone,
+    updateDeliveryStatus, getRecentOrderByPhone, getTokenUsageSummary,
 } from './db.js';
 import { shopName, getInventoryList, deductStock, restoreStock, getItemById, getInventoryIds, updatePaymentInfo, setPaymentPolicy, getPaymentPolicy, addQuickProduct, addProductImage, findItemByName } from './shop.js';
 
@@ -687,6 +687,35 @@ client.on('message', async (message) => {
                     const name = text.replace(/^remove\s+driver\s+/i, '').trim();
                     removeDriver(name);
                     await message.reply(`✅ Driver "${name}" ameondolewa.`);
+
+                    // --- Owner: AI TOKEN USAGE ---
+                } else if (upper === 'USAGE' || upper === 'TOKENS') {
+                    const { allTime, todayUsage, totals } = getTokenUsageSummary();
+                    let report = `📊 *AI TOKEN USAGE*\n\n`;
+                    report += `*Jumla:* ${(totals?.total_input || 0).toLocaleString()} in / ${(totals?.total_output || 0).toLocaleString()} out (${totals?.requests || 0} requests)\n\n`;
+
+                    if (todayUsage.length > 0) {
+                        report += `*Leo:*\n`;
+                        todayUsage.slice(0, 10).forEach((u, i) => {
+                            report += `${i + 1}. +${u.phone} — ${u.total_input.toLocaleString()}/${u.total_output.toLocaleString()} (${u.requests} req)\n`;
+                        });
+                        report += `\n`;
+                    }
+
+                    if (allTime.length > 0) {
+                        report += `*Top 10 (All Time):*\n`;
+                        allTime.slice(0, 10).forEach((u, i) => {
+                            report += `${i + 1}. +${u.phone} — ${u.total_input.toLocaleString()}/${u.total_output.toLocaleString()} (${u.requests} req)\n`;
+                        });
+                    }
+
+                    // Estimate cost (Gemini 2.0 Flash pricing)
+                    const totalIn = totals?.total_input || 0;
+                    const totalOut = totals?.total_output || 0;
+                    const estCost = ((totalIn * 0.10 / 1000000) + (totalOut * 0.40 / 1000000)).toFixed(4);
+                    report += `\n💰 *Est. Cost:* ~$${estCost}`;
+
+                    await message.reply(report);
 
                     // --- Owner reply: NDIYO/HAPANA for stock check ---
                 } else if (stockCheckQueue.size > 0 && (upper === 'NDIYO' || upper === 'HAPANA')) {
