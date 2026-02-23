@@ -890,42 +890,65 @@ async function processBufferedMessages(chatKey) {
 
         // ============================================================
         // PRE-AI RECEIPT INTERCEPTION — Check BEFORE sending to AI
-        // Catches M-Pesa texts AND receipt screenshots, with or without pending payment
+        // AUTO-DENY: wrong name, old receipt → instant customer feedback
+        // FORWARD: name ✓ + time ✓ but amount mismatch → send to owner
+        // VERIFIED: name ✓ + time ✓ + amount ✓ → send to owner
         // ============================================================
         const pending = pendingPayments.get(userPhone);
+
+        // Helper: handle receipt validation result
+        const handleReceiptResult = async (receipt, receiptMedia) => {
+            const shopData = loadProfile();
+            const result = validateReceipt(receipt, pending, shopData.payment_info);
+
+            if (result.action === 'DENY') {
+                // Auto-deny: tell customer immediately, do NOT bother owner
+                await chat.clearState();
+                await message.reply(result.reason);
+                console.log(`🧾 [DENIED] ${userPhone} → ${result.reason.slice(0, 60)}`);
+                return true;
+            }
+
+            // FORWARD or VERIFIED → send to owner
+            if (OWNER_PHONE) {
+                let report = `🧾 *${result.action === 'VERIFIED' ? 'MALIPO YAMETHIBITISHWA' : 'MALIPO — KAGUA'}:*\n`;
+                report += `👤 +${userPhone} (${profile.label})\n`;
+                if (pending) {
+                    const item = getItemById(pending.itemId);
+                    report += `📦 Bidhaa: ${item ? item.item : pending.itemId}\n`;
+                    report += `💰 Bei iliyokubalika: TZS ${pending.price}\n`;
+                }
+                if (receipt.transactionId) report += `🔢 TxID: ${receipt.transactionId}\n`;
+                if (receipt.amount) report += `💵 Kiasi kilicholipwa: TZS ${receipt.amount.toLocaleString()}\n`;
+                if (receipt.recipient) report += `👤 Aliyepokea: ${receipt.recipient}\n`;
+                if (receipt.date) report += `📅 Tarehe: ${receipt.date}\n`;
+
+                if (result.action === 'VERIFIED') {
+                    report += `\n✅ *Kiasi, jina na muda vinafanana*`;
+                } else {
+                    report += `\n⚠️ *Angalia:* ${result.reason}`;
+                }
+                report += `\n\n_Jibu THIBITISHA au KATAA_`;
+
+                if (receiptMedia) {
+                    await client.sendMessage(OWNER_PHONE, receiptMedia, { caption: report });
+                } else {
+                    await client.sendMessage(OWNER_PHONE, report);
+                }
+            }
+
+            await chat.clearState();
+            await message.reply(result.reason);
+            console.log(`🧾 [${result.action}] ${userPhone} → TxID: ${receipt.transactionId || 'N/A'}`);
+            return true;
+        };
 
         // 1. Text receipt (forwarded M-Pesa confirmation)
         if (isMpesaText(combinedText)) {
             console.log(`🧾 [RECEIPT TEXT] Detected M-Pesa text from ${userPhone}`);
             const parsed = parseMpesaText(combinedText);
             if (parsed) {
-                const shopData = loadProfile();
-                const validation = pending
-                    ? validateReceipt(parsed, pending, shopData.payment_info)
-                    : { valid: false, issues: ['Hakuna order inayosubiri malipo'] };
-
-                // Build verification report for owner
-                let report = `🧾 *RECEIPT RECEIVED:*\n`;
-                report += `👤 +${userPhone} (${profile.label})\n`;
-                if (pending) {
-                    const item = getItemById(pending.itemId);
-                    report += `📦 Bidhaa: ${item ? item.item : pending.itemId}\n`;
-                    report += `💰 Bei inayotarajiwa: TZS ${pending.price}\n`;
-                }
-                if (parsed.transactionId) report += `🔢 TxID: ${parsed.transactionId}\n`;
-                if (parsed.amount) report += `💵 Kiasi kilicholipwa: TZS ${parsed.amount.toLocaleString()}\n`;
-                if (parsed.recipient) report += `👤 Aliyepokea: ${parsed.recipient}\n`;
-                if (parsed.date) report += `📅 Tarehe: ${parsed.date}\n`;
-                report += `\n${validation.valid ? '✅ *VERIFIED — Kiasi, jina na muda vinafanana*' : '⚠️ *TATIZO:*\n' + validation.issues.map(i => '- ' + i).join('\n')}`;
-                report += `\n\n_Jibu THIBITISHA au KATAA_`;
-
-                if (OWNER_PHONE) {
-                    await client.sendMessage(OWNER_PHONE, report);
-                }
-
-                await chat.clearState();
-                await message.reply('Asante, nimepokea muamala wako. Tunakagua sasa... ⏳');
-                console.log(`🧾 [VERIFIED] ${validation.valid ? '✅' : '⚠️'} ${userPhone} → TxID: ${parsed.transactionId || 'N/A'}`);
+                await handleReceiptResult(parsed, null);
                 return;
             }
         }
@@ -935,36 +958,11 @@ async function processBufferedMessages(chatKey) {
             const receiptData = await verifyReceiptImage(media.data, media.mimetype);
             if (receiptData) {
                 console.log(`🧾 [RECEIPT IMAGE] Detected payment screenshot from ${userPhone}`);
-                const shopData = loadProfile();
-                const validation = pending
-                    ? validateReceipt(receiptData, pending, shopData.payment_info)
-                    : { valid: false, issues: ['Hakuna order inayosubiri malipo'] };
-
-                let report = `🧾 *RECEIPT SCREENSHOT:*\n`;
-                report += `👤 +${userPhone} (${profile.label})\n`;
-                if (pending) {
-                    const item = getItemById(pending.itemId);
-                    report += `📦 Bidhaa: ${item ? item.item : pending.itemId}\n`;
-                    report += `💰 Bei inayotarajiwa: TZS ${pending.price}\n`;
-                }
-                if (receiptData.transactionId) report += `🔢 TxID: ${receiptData.transactionId}\n`;
-                if (receiptData.amount) report += `💵 Kiasi kilicholipwa: TZS ${receiptData.amount.toLocaleString()}\n`;
-                if (receiptData.recipient) report += `👤 Aliyepokea: ${receiptData.recipient}\n`;
-                if (receiptData.date) report += `📅 Tarehe: ${receiptData.date}\n`;
-                report += `\n${validation.valid ? '✅ *VERIFIED — Kiasi, jina na muda vinafanana*' : '⚠️ *TATIZO:*\n' + validation.issues.map(i => '- ' + i).join('\n')}`;
-                report += `\n\n_Jibu THIBITISHA au KATAA_`;
-
-                if (OWNER_PHONE) {
-                    const receiptMedia = new MessageMedia(media.mimetype, media.data, 'receipt.jpg');
-                    await client.sendMessage(OWNER_PHONE, receiptMedia, { caption: report });
-                }
-
-                await chat.clearState();
-                await message.reply('Asante, nimepokea screenshot ya malipo yako. Tunakagua... ⏳');
-                console.log(`🧾 [VERIFIED IMG] ${validation.valid ? '✅' : '⚠️'} ${userPhone}`);
+                const imgMedia = new MessageMedia(media.mimetype, media.data, 'receipt.jpg');
+                await handleReceiptResult(receiptData, imgMedia);
                 return;
             }
-            // Not a receipt image — falls through to AI (product photo, etc.)
+            // Not a receipt image — falls through to AI
         }
 
         // --- Input length validation (prevent token abuse / Economic DoS) ---
