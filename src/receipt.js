@@ -215,7 +215,7 @@ export function validateReceipt(receipt, pending, shopPaymentInfo) {
     return {
         action: 'FORWARD',
         reason: receipt.amount && expectedAmount && receipt.amount < expectedAmount
-            ? `Nimepokea receipt yako, lakini kiasi (TZS ${receipt.amount.toLocaleString()}) ni kidogo kuliko bei iliyokubalika (TZS ${expectedAmount.toLocaleString()}). Tunawasiliana na mhudumu kukagua.`
+            ? `Nimepokea receipt yako, lakini kiasi (TZS ${receipt.amount.toLocaleString()}) ni kidogo kuliko bei iliyokubalika (TZS ${expectedAmount.toLocaleString()}). Nawasiliana na meneja kukagua.`
             : 'Nimepokea receipt yako. Tunakagua malipo sasa.',
         details: { amount: receipt.amount, expectedAmount, transactionId: receipt.transactionId },
     };
