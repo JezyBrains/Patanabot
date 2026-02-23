@@ -31,6 +31,27 @@ db.exec(`
     item_requested TEXT,
     date DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS drivers (
+    name TEXT PRIMARY KEY COLLATE NOCASE,
+    phone TEXT NOT NULL,
+    available BOOLEAN DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER,
+    customer_phone TEXT NOT NULL,
+    driver_name TEXT NOT NULL,
+    driver_phone TEXT NOT NULL,
+    item TEXT,
+    price TEXT,
+    delivery_location TEXT,
+    status TEXT DEFAULT 'dispatched',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+  );
 `);
 
 // Migrate: add new columns if missing (safe for existing DBs)
@@ -231,6 +252,65 @@ export function getDailySummary() {
     orderCount: revenueRow.count,
     missedItems: missedItems.length > 0 ? missedItems.join(', ') : 'Hakuna',
   };
+}
+
+// ============================================================
+// DRIVER MANAGEMENT
+// ============================================================
+
+export function addDriver(name, phone) {
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  db.prepare(`INSERT OR REPLACE INTO drivers (name, phone) VALUES (?, ?)`)
+    .run(name.toLowerCase(), cleanPhone);
+}
+
+export function getDriverByName(name) {
+  return db.prepare(`SELECT * FROM drivers WHERE name = ? COLLATE NOCASE`).get(name.toLowerCase());
+}
+
+export function listDrivers() {
+  return db.prepare(`SELECT name, phone, available FROM drivers ORDER BY name`).all();
+}
+
+export function removeDriver(name) {
+  db.prepare(`DELETE FROM drivers WHERE name = ? COLLATE NOCASE`).run(name.toLowerCase());
+}
+
+// ============================================================
+// DELIVERY TRACKING
+// ============================================================
+
+export function createDelivery(customerPhone, driverName, driverPhone, item, price, location, orderId) {
+  return db.prepare(`
+        INSERT INTO deliveries (order_id, customer_phone, driver_name, driver_phone, item, price, delivery_location)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(orderId || null, customerPhone, driverName, driverPhone, item || '', price || '', location || '');
+}
+
+export function getActiveDeliveryByCustomer(customerPhone) {
+  return db.prepare(`
+        SELECT * FROM deliveries 
+        WHERE customer_phone = ? AND status IN ('dispatched', 'in_transit')
+        ORDER BY created_at DESC LIMIT 1
+    `).get(customerPhone);
+}
+
+export function getActiveDeliveryByDriver(driverPhone) {
+  return db.prepare(`
+        SELECT * FROM deliveries 
+        WHERE driver_phone = ? AND status IN ('dispatched', 'in_transit')
+        ORDER BY created_at DESC LIMIT 1
+    `).get(driverPhone);
+}
+
+export function updateDeliveryStatus(deliveryId, status) {
+  db.prepare(`UPDATE deliveries SET status = ? WHERE id = ?`).run(status, deliveryId);
+}
+
+export function getRecentOrderByPhone(phone) {
+  return db.prepare(`
+        SELECT * FROM orders WHERE phone = ? ORDER BY created_at DESC LIMIT 1
+    `).get(phone);
 }
 
 export default db;

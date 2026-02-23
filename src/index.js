@@ -1,5 +1,5 @@
 import pkg from 'whatsapp-web.js';
-const { Client, LocalAuth, MessageMedia } = pkg;
+const { Client, LocalAuth, MessageMedia, Location } = pkg;
 import qrcode from 'qrcode-terminal';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
@@ -15,6 +15,9 @@ import {
     saveMissedOpportunity, getDailySummary,
     getEscalationCount, incrementEscalation, resetEscalation,
     getCustomerRating, setCustomerRating, getCustomerProfile,
+    addDriver, getDriverByName, listDrivers, removeDriver,
+    createDelivery, getActiveDeliveryByCustomer, getActiveDeliveryByDriver,
+    updateDeliveryStatus, getRecentOrderByPhone,
 } from './db.js';
 import { shopName, getInventoryList, deductStock, restoreStock, getItemById, getInventoryIds, updatePaymentInfo, setPaymentPolicy, getPaymentPolicy, addQuickProduct, addProductImage, findItemByName } from './shop.js';
 
@@ -104,10 +107,15 @@ const ALERT_TAG_REGEX = /\[ALERT:\s*(.+?)\s*\]/;
 const OOS_TAG_REGEX = /\[OUT_OF_STOCK:\s*(.+?)\s*\]/;
 const CHECK_STOCK_TAG_REGEX = /\[CHECK_STOCK:\s*(.+?)\s*\]/;
 const TROLL_TAG_REGEX = /\[TROLL\]/;
+const DRIVER_STATUS_TAG_REGEX = /\[DRIVER_STATUS\]/;
 
 // --- Pending Payments: Awaiting M-Pesa receipts ---
 // phone → { itemId, price, location, timestamp }
 const pendingPayments = new Map();
+
+// --- Driver live locations ---
+// driverPhone → { lat, lng, timestamp, customerPhone }
+const driverLocations = new Map();
 
 // --- Last product owner interacted with (for captionless photo attach) ---
 let lastOwnerProduct = null;
@@ -212,6 +220,64 @@ client.on('message', async (message) => {
 
         // Debug: log every message that passes filters
         console.log(`📨 [INTAKE] type=${message.type} from=${message.from.slice(0, 6)} hasMedia=${message.hasMedia} body="${(message.body || '').slice(0, 40)}"`);
+
+        const senderPhone = message.from.replace(/@c\.us$/, '');
+
+        // ============================================================
+        // DRIVER LOCATION HANDLER — intercept live location from drivers
+        // ============================================================
+        if (message.type === 'location' || message.type === 'live_location') {
+            const delivery = getActiveDeliveryByDriver(senderPhone);
+            if (delivery) {
+                const lat = message.location?.latitude || message.lat;
+                const lng = message.location?.longitude || message.lng;
+                if (lat && lng) {
+                    driverLocations.set(senderPhone, {
+                        lat, lng, timestamp: Date.now(), customerPhone: delivery.customer_phone,
+                    });
+
+                    // Forward location to customer
+                    try {
+                        const loc = new Location(lat, lng, `📍 ${delivery.driver_name} - anakuletea order yako`);
+                        await client.sendMessage(`${delivery.customer_phone}@c.us`, loc);
+                        console.log(`📍 [LOCATION] ${delivery.driver_name} → ${delivery.customer_phone} (${lat}, ${lng})`);
+                    } catch (locErr) {
+                        // Fallback: send as text if Location class not available
+                        await client.sendMessage(`${delivery.customer_phone}@c.us`,
+                            `📍 *Location ya driver (${delivery.driver_name}):*\nhttps://maps.google.com/maps?q=${lat},${lng}\n\n_Updated sasa hivi_`
+                        );
+                        console.log(`📍 [LOCATION TEXT] ${delivery.driver_name} → ${delivery.customer_phone}`);
+                    }
+
+                    // Update delivery status to in_transit
+                    if (delivery.status === 'dispatched') {
+                        updateDeliveryStatus(delivery.id, 'in_transit');
+                    }
+                    return; // Don't process location messages further
+                }
+            }
+        }
+
+        // Driver says "delivered" or "nimefika" — mark delivery complete
+        if (/^(?:delivered|nimefika|nimewasili|imefikia)$/i.test((message.body || '').trim())) {
+            const delivery = getActiveDeliveryByDriver(senderPhone);
+            if (delivery) {
+                updateDeliveryStatus(delivery.id, 'delivered');
+                driverLocations.delete(senderPhone);
+
+                await client.sendMessage(`${delivery.customer_phone}@c.us`,
+                    `✅ *Order yako imefika!*\nDriver ${delivery.driver_name} amewasili. Karibu tena.`
+                );
+                await message.reply(`✅ Delivery imekamilika! Customer ${delivery.customer_phone} amefahamishwa.`);
+                if (OWNER_PHONE) {
+                    await client.sendMessage(OWNER_PHONE,
+                        `✅ *DELIVERED:* ${delivery.item} → +${delivery.customer_phone} (Driver: ${delivery.driver_name})`
+                    );
+                }
+                console.log(`✅ [DELIVERED] ${delivery.item} → ${delivery.customer_phone} by ${delivery.driver_name}`);
+                return;
+            }
+        }
 
         // ============================================================
         // OWNER ADMIN PANEL
@@ -527,6 +593,100 @@ client.on('message', async (message) => {
                         await message.reply(`❌ Malipo ya ${targetPhone} yamekataliwa. Stock imerejeshwa.`);
                         console.log(`❌ [PAYMENT REJECTED] ${targetPhone} — stock restored`);
                     }
+
+                    // --- Owner: DELIVER command → dispatch order to driver ---
+                } else if (/^deliver\s+/i.test(text)) {
+                    // Format: deliver 255xxx drivername  OR  deliver drivername (uses last confirmed order)
+                    const deliverMatch = text.match(/^deliver\s+(\d{9,15})\s+(.+)$/i)
+                        || text.match(/^deliver\s+(.+)$/i);
+
+                    if (!deliverMatch) {
+                        await message.reply('📝 Format: *deliver 255xxx jina_la_driver*\nMfano: deliver 255743726397 abduli');
+                        return;
+                    }
+
+                    let customerPhone, driverName;
+                    if (deliverMatch[2]) {
+                        customerPhone = deliverMatch[1];
+                        driverName = deliverMatch[2].trim();
+                    } else {
+                        // Only driver name given — use last pending payment
+                        driverName = deliverMatch[1].trim();
+                        customerPhone = [...pendingPayments.keys()].pop();
+                        if (!customerPhone) {
+                            await message.reply('❌ Hakuna order. Tumia: deliver 255xxx drivername');
+                            return;
+                        }
+                    }
+
+                    const driver = getDriverByName(driverName);
+                    if (!driver) {
+                        const allDrivers = listDrivers();
+                        const driverList = allDrivers.length > 0
+                            ? allDrivers.map(d => `- ${d.name} (${d.phone})`).join('\n')
+                            : 'Hakuna driver. Ongeza kwanza: add driver jina namba';
+                        await message.reply(`❌ Driver "${driverName}" haipo.\n\n📋 *Drivers:*\n${driverList}`);
+                        return;
+                    }
+
+                    // Find order details
+                    const pending = pendingPayments.get(customerPhone);
+                    const recentOrder = getRecentOrderByPhone(customerPhone);
+                    const item = pending ? (getItemById(pending.itemId)?.item || pending.itemId) : (recentOrder?.item_sold || 'Order');
+                    const price = pending?.price || recentOrder?.agreed_price || '';
+                    const location = pending?.location || recentOrder?.delivery_location || '';
+
+                    // Create delivery record
+                    createDelivery(customerPhone, driver.name, driver.phone, item, price, location, recentOrder?.id);
+
+                    // Notify driver
+                    await client.sendMessage(`${driver.phone}@c.us`,
+                        `📦 *DELIVERY ASSIGNMENT:*\n` +
+                        `🛍️ Bidhaa: ${item}\n` +
+                        `📍 Location: ${location}\n` +
+                        `👤 Customer: +${customerPhone}\n` +
+                        `💰 Bei: TZS ${price}\n\n` +
+                        `Tafadhali *share live location* hapa ili customer ajue uko wapi.`
+                    );
+
+                    // Notify customer
+                    await client.sendMessage(`${customerPhone}@c.us`,
+                        `🚗 *Order yako imetumwa!*\n\n` +
+                        `📦 Bidhaa: ${item}\n` +
+                        `🧑‍✈️ Driver: ${driver.name.charAt(0).toUpperCase() + driver.name.slice(1)}\n` +
+                        `📞 Simu: ${driver.phone}\n\n` +
+                        `Utapata location ya driver hivi karibuni.`
+                    );
+
+                    await message.reply(`✅ Dispatched! ${item} → ${driver.name} (${driver.phone}) → +${customerPhone}`);
+                    console.log(`🚗 [DISPATCH] ${item} → driver: ${driver.name} → customer: ${customerPhone}`);
+
+                    // --- Owner: ADD DRIVER ---
+                } else if (/^add\s+driver\s+/i.test(text)) {
+                    const driverMatch = text.match(/^add\s+driver\s+(\S+)\s+(\d{9,15})$/i);
+                    if (!driverMatch) {
+                        await message.reply('📝 Format: *add driver jina namba*\nMfano: add driver abduli 0712345678');
+                        return;
+                    }
+                    addDriver(driverMatch[1], driverMatch[2]);
+                    await message.reply(`✅ Driver "${driverMatch[1]}" (${driverMatch[2]}) ameongezwa.`);
+                    console.log(`🚗 [DRIVER ADDED] ${driverMatch[1]} → ${driverMatch[2]}`);
+
+                    // --- Owner: LIST DRIVERS ---
+                } else if (upper === 'DRIVERS' || upper === 'MADEREVA') {
+                    const allDrivers = listDrivers();
+                    if (allDrivers.length === 0) {
+                        await message.reply('📋 Hakuna driver. Ongeza: *add driver jina namba*');
+                    } else {
+                        const list = allDrivers.map((d, i) => `${i + 1}. ${d.name} — ${d.phone}`).join('\n');
+                        await message.reply(`📋 *Drivers (${allDrivers.length}):*\n${list}`);
+                    }
+
+                    // --- Owner: REMOVE DRIVER ---
+                } else if (/^remove\s+driver\s+/i.test(text)) {
+                    const name = text.replace(/^remove\s+driver\s+/i, '').trim();
+                    removeDriver(name);
+                    await message.reply(`✅ Driver "${name}" ameondolewa.`);
 
                     // --- Owner reply: NDIYO/HAPANA for stock check ---
                 } else if (stockCheckQueue.size > 0 && (upper === 'NDIYO' || upper === 'HAPANA')) {
@@ -1006,6 +1166,31 @@ async function processBufferedMessages(chatKey) {
             aiResponse = aiResponse.replace(fullTag, '').trim();
             startStockCheck(userPhone, item.trim(), message.from);
             console.log(`📦 [CHECK STOCK] "${item}" — owner pinged`);
+        }
+
+        // --- DRIVER STATUS Interceptor ---
+        const driverStatusMatch = aiResponse.match(DRIVER_STATUS_TAG_REGEX);
+        if (driverStatusMatch) {
+            aiResponse = aiResponse.replace(DRIVER_STATUS_TAG_REGEX, '').trim();
+            const delivery = getActiveDeliveryByCustomer(userPhone);
+            if (delivery) {
+                const loc = driverLocations.get(delivery.driver_phone);
+                let statusMsg = `🚗 *Delivery yako:*\n`;
+                statusMsg += `📦 Bidhaa: ${delivery.item}\n`;
+                statusMsg += `🧑‍✈️ Driver: ${delivery.driver_name}\n`;
+                statusMsg += `📞 Simu: ${delivery.driver_phone}\n`;
+                statusMsg += `📊 Status: ${delivery.status === 'in_transit' ? 'Njiani' : 'Imetumwa'}\n`;
+                if (loc) {
+                    const minsAgo = Math.round((Date.now() - loc.timestamp) / 60000);
+                    statusMsg += `\n📍 *Location ya sasa:*\nhttps://maps.google.com/maps?q=${loc.lat},${loc.lng}\n_Dakika ${minsAgo} zilizopita_`;
+                } else {
+                    statusMsg += `\n_Driver bado hajashare location. Tunasubiri._`;
+                }
+                aiResponse = statusMsg;
+            } else {
+                aiResponse = 'Kwa sasa hakuna delivery inayoendelea. Kama umeagiza bidhaa, tutakufahamisha mara itakapotumwa.';
+            }
+            console.log(`🚗 [DRIVER STATUS] ${userPhone} asked about delivery`);
         }
 
         // --- PENDING PAYMENT Interceptor ---
