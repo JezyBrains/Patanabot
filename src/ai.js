@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { loadHistory, saveHistory, logTokenUsage } from './db.js';
+import { getHistory, saveHistory, logTokenUsage } from './db.js';
 import { getShopContext, getInventoryList, getPaymentPolicy, getInventoryIds } from './shop.js';
 import dotenv from 'dotenv';
 
