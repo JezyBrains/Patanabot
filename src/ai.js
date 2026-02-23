@@ -192,14 +192,30 @@ SHERIA ZA UBONGO WA MAUZO(SALES PSYCHOLOGY):
                 - SAHIHI: [SEND_IMAGE: airpods_pro2]  MAKOSA: [SEND_IMAGE: Airpods Pro Gen 2]
 
 11. PICHA ZINAZOKUJA KUTOKA KWA MTEJA (IMAGE RULES):
-    - KWANZA: SOMA PICHA KWA MAKINI! Tazama BRAND, MODEL, SIZE/CAPACITY, na rangi kwenye picha.
-    - Mfano: Picha ya flash disk ya bluu yenye "KIOXIA" na "4GB" → Hiyo ni Kioxia Flash Disk 4GB, SIYO Toshiba, SIYO Sandisk, SIYO 32GB!
-    - KISHA: Tafuta bidhaa HIYO HIYO kwenye inventory yako (brand + model + size lazima zilingane).
-    - KAMA HUNA bidhaa hiyo EXACTLY → SEMA UKWELI: "Boss, naona hiyo ni [brand] [model] [size]. Kwa sasa sina hiyo kwenye stoo, lakini nina [bidhaa zinazofanana za category hiyo hiyo]." Kisha orodhesha alternatives.
-    - KAMWE USIDANGANYE! Usiite Kioxia "Toshiba". Usiite 4GB "32GB". Soma picha vizuri!
-    - Picha ya RECEIPT/MUAMALA → Usijishughulishe! Mfumo unashughulikia. Sema: "Nimepokea, nawasiliana na meneja kukagua."
-    - Picha NYINGINE (math, selfie, meme, text random) → USIIJIBU! Sema: "Boss, hiyo siwezi kukusaidia. Niambie unataka bidhaa gani?"
-    - KAMWE usijibu maswali ya hisabati, usomaji wa text, au kitu kisicho na uhusiano na mauzo!
+    A) HATUA YA KWANZA — SOMA PICHA KWA MAKINI:
+       - BRAND/JINA: Soma maandishi YOTE kwenye packaging, label, au bidhaa yenyewe.
+       - AINA/MODEL: Ni nini exactly? (lipstick, foundation, flash disk, simu, nguo, etc.)
+       - VARIANT/SPECS: Size, capacity, shade, color, weight, flavor — chochote kinachofanya bidhaa iwe UNIQUE.
+       - Mfano: Flash disk ya bluu yenye "KIOXIA" na "4GB" = Kioxia Flash Disk 4GB (SIYO Toshiba 32GB!)
+       - Mfano: Lipstick yenye label "MAYBELLINE" shade "690 Nude" = Maybelline Lipstick shade 690 (SIYO L'Oreal!)
+       - Mfano: Cream yenye "NIVEA" na "400ml" = Nivea Cream 400ml (SIYO Vaseline, SIYO 200ml!)
+
+    B) HATUA YA PILI — LINGANISHA NA INVENTORY:
+       - Tafuta bidhaa HIYO HIYO kwenye inventory (brand + aina + variant lazima ZILINGANE).
+       - Kama umeipata EXACTLY → Mpe bei na maelezo.
+       - KAMA HUNA → SEMA UKWELI kwa upole:
+         "Boss, naona hiyo ni [brand] [aina] [variant]. Kwa sasa sina hiyo kwenye stoo."
+         Kisha orodhesha bidhaa ZINAZOFANANA za category hiyo hiyo kutoka inventory.
+
+    C) MAKOSA MAKUBWA — KAMWE USIFANYE HAYA:
+       - USIDANGANYE brand! Kioxia ≠ Toshiba, Maybelline ≠ L'Oreal, Tecno ≠ Samsung.
+       - USIDANGANYE specs! 4GB ≠ 32GB, shade "Nude" ≠ shade "Red", 200ml ≠ 400ml.
+       - USIDHANIE! Kama huwezi kusoma brand/specs vizuri kwenye picha, ULIZA mteja: "Boss, siwezi kuona vizuri — ni brand gani na size gani?"
+       - USIMPE bidhaa ya category tofauti! Mteja akituma picha ya lipstick, USIMPE foundation!
+
+    D) PICHA ZA RECEIPT/MUAMALA → Usijishughulishe! Mfumo unashughulikia. Sema: "Nimepokea, nawasiliana na meneja kukagua."
+    E) PICHA NYINGINE (math, selfie, meme, text random) → Sema: "Boss, hiyo siwezi kukusaidia. Niambie unataka bidhaa gani?"
+    F) KAMWE usijibu maswali ya hisabati, usomaji wa text, au kitu kisicho na uhusiano na mauzo!
 
 12. DELIVERY STATUS:
 - Kama mteja anauliza "driver yuko wapi?", "order yangu iko wapi?", "delivery yangu?" → Jibu: "Ngoja nikikagulie..." + [DRIVER_STATUS]
@@ -323,7 +339,7 @@ export async function generateResponse(userPhone, prompt, media = null) {
                 if (media.mimetype && media.mimetype.includes('audio')) {
                     mediaPrompt = 'Mteja ametuma voice note. Sikiliza kwa makini alichosema na umjibu kulingana na swali au ombi lake. Kama anaomba bidhaa, mpe bei na maelezo kutoka inventory.';
                 } else {
-                    mediaPrompt = 'Mteja ametuma picha ya bidhaa. SOMA PICHA KWA MAKINI — tazama BRAND (jina la kampuni), MODEL, na SIZE/CAPACITY (GB, inches, etc) kwenye picha. Kisha tafuta bidhaa HIYO HIYO kwenye inventory. Kama huna bidhaa hiyo exactly, SEMA UKWELI — usidanganye brand au size. Mpe alternatives za category hiyo kutoka inventory yako.';
+                    mediaPrompt = 'Mteja ametuma picha ya bidhaa. SOMA PICHA KWA MAKINI: (1) Soma BRAND/JINA lote kwenye label au packaging. (2) Tambua AINA ya bidhaa (simu, cream, lipstick, nguo, flash disk, etc). (3) Soma VARIANT/SPECS (size, shade, color, capacity, weight). KISHA tafuta bidhaa HIYO HIYO kwenye inventory — brand + aina + variant lazima zilingane. Kama huna hiyo exactly, SEMA UKWELI na mpe alternatives za category hiyo. KAMWE usidanganye brand au specs! Kama huwezi kusoma label vizuri, muulize mteja.';
                 }
             }
             messageContent = [mediaPrompt, mediaPart];
