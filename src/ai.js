@@ -191,11 +191,15 @@ SHERIA ZA UBONGO WA MAUZO(SALES PSYCHOLOGY):
             - LAZIMA utumie "id" halisi kutoka inventory(mfano: airpods_pro2).KAMWE usiweke jina lenye nafasi!
                 - SAHIHI: [SEND_IMAGE: airpods_pro2]  MAKOSA: [SEND_IMAGE: Airpods Pro Gen 2]
 
-11. PICHA ZINAZOKUJA KUTOKA KWA MTEJA(IMAGE RULES):
-- Picha ya BIDHAA(simu, laptop, earphones) → Jibu kuhusu bidhaa hiyo, bei, au pendekezo.
-    - Picha ya RECEIPT / MUAMALA → Usijishughulishe! Mfumo unashughulikia.Sema: "Nimepokea, nawasiliana na meneja kukagua."
-    - Picha NYINGINE(math, selfie, meme, text random) → USIIJIBU! Sema: "Boss, hiyo siwezi kukusaidia. Niambie unataka bidhaa gani?"
-        - KAMWE usijibu maswali ya hisabati, usomaji wa text, au kitu kisicho na uhusiano na mauzo!
+11. PICHA ZINAZOKUJA KUTOKA KWA MTEJA (IMAGE RULES):
+    - KWANZA: SOMA PICHA KWA MAKINI! Tazama BRAND, MODEL, SIZE/CAPACITY, na rangi kwenye picha.
+    - Mfano: Picha ya flash disk ya bluu yenye "KIOXIA" na "4GB" → Hiyo ni Kioxia Flash Disk 4GB, SIYO Toshiba, SIYO Sandisk, SIYO 32GB!
+    - KISHA: Tafuta bidhaa HIYO HIYO kwenye inventory yako (brand + model + size lazima zilingane).
+    - KAMA HUNA bidhaa hiyo EXACTLY → SEMA UKWELI: "Boss, naona hiyo ni [brand] [model] [size]. Kwa sasa sina hiyo kwenye stoo, lakini nina [bidhaa zinazofanana za category hiyo hiyo]." Kisha orodhesha alternatives.
+    - KAMWE USIDANGANYE! Usiite Kioxia "Toshiba". Usiite 4GB "32GB". Soma picha vizuri!
+    - Picha ya RECEIPT/MUAMALA → Usijishughulishe! Mfumo unashughulikia. Sema: "Nimepokea, nawasiliana na meneja kukagua."
+    - Picha NYINGINE (math, selfie, meme, text random) → USIIJIBU! Sema: "Boss, hiyo siwezi kukusaidia. Niambie unataka bidhaa gani?"
+    - KAMWE usijibu maswali ya hisabati, usomaji wa text, au kitu kisicho na uhusiano na mauzo!
 
 12. DELIVERY STATUS:
 - Kama mteja anauliza "driver yuko wapi?", "order yangu iko wapi?", "delivery yangu?" → Jibu: "Ngoja nikikagulie..." + [DRIVER_STATUS]
@@ -319,7 +323,7 @@ export async function generateResponse(userPhone, prompt, media = null) {
                 if (media.mimetype && media.mimetype.includes('audio')) {
                     mediaPrompt = 'Mteja ametuma voice note. Sikiliza kwa makini alichosema na umjibu kulingana na swali au ombi lake. Kama anaomba bidhaa, mpe bei na maelezo kutoka inventory.';
                 } else {
-                    mediaPrompt = 'Mteja ametuma picha ya bidhaa anayoitaka. Tambua bidhaa ndani ya kichwa chako na umjibu moja kwa moja — usielezee picha.';
+                    mediaPrompt = 'Mteja ametuma picha ya bidhaa. SOMA PICHA KWA MAKINI — tazama BRAND (jina la kampuni), MODEL, na SIZE/CAPACITY (GB, inches, etc) kwenye picha. Kisha tafuta bidhaa HIYO HIYO kwenye inventory. Kama huna bidhaa hiyo exactly, SEMA UKWELI — usidanganye brand au size. Mpe alternatives za category hiyo kutoka inventory yako.';
                 }
             }
             messageContent = [mediaPrompt, mediaPart];
