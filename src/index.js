@@ -1162,6 +1162,14 @@ async function processBufferedMessages(chatKey) {
             safeText = safeText.slice(0, MAX_MSG_LENGTH);
         }
 
+        // --- Greeting intercept (skip AI entirely — zero tokens) ---
+        const GREETING_REGEX = /^(hi|hello|habari|mambo|niaje|yo|hey|salaam|shikamoo|hujambo|sasa|vipi|aje|sup|good\s*(morning|afternoon|evening)|bro|boss|mkuu)\s*[!?.]*$/i;
+        if (!media && GREETING_REGEX.test(safeText.trim())) {
+            console.log(`👋 [GREETING] ${userPhone} → hardcoded reply (zero tokens)`);
+            await sendBatchedReply(message, 'Karibu boss', userPhone);
+            return;
+        }
+
         // --- AI Response ---
         let aiResponse = await generateResponse(userPhone, safeText, media);
 
