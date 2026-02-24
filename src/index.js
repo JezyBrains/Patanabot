@@ -1166,7 +1166,7 @@ async function processBufferedMessages(chatKey) {
         const GREETING_REGEX = /^(hi|hello|habari|mambo|niaje|yo|hey|salaam|shikamoo|hujambo|sasa|vipi|aje|sup|good\s*(morning|afternoon|evening)|bro|boss|mkuu)\s*[!?.]*$/i;
         if (!media && GREETING_REGEX.test(safeText.trim())) {
             console.log(`👋 [GREETING] ${userPhone} → hardcoded reply (zero tokens)`);
-            await sendBatchedReply(message, 'Karibu boss', userPhone);
+            await message.reply('Karibu boss');
             return;
         }
 
