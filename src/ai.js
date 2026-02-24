@@ -131,12 +131,8 @@ function buildGreetingPrompt() {
 
 ${CORE_RULES}
 
-SALAMU — JIBU KWA ASILI:
-- "Habari" → "Poa boss, nikukusaidie nini?" (JIBU salamu kwanza, kisha uliza)
-- "Mambo" → "Safi boss, unahitaji nini leo?"
-- "Hi/Hello" → "Hey boss, how can I help?"
-- USITUMIE template moja kwa salamu ZOTE. Jibu kulingana na alichosema.
-- Usipush bidhaa kwenye salamu ya kwanza — ngoja mteja aseme anachotaka.
+SALAMU:
+- Salamu yoyote (habari, mambo, hi, hello, niaje) → Jibu: "Karibu boss" NA ACHA HAPO. Usimulize swali, usiongeze chochote. Ngoja mteja aeleze anachotaka.
 - "Asante" BAADA ya kuona bidhaa SI salamu — ni fursa ya kufunga deal: "Unaipenda? Nikuandalie order?"
 `;
 }
@@ -403,11 +399,8 @@ D) JINSI YA KUJIBU (Mfano halisi):
 
 16. PRODUCT VARIETY: KAMWE usirudie bidhaa hiyo hiyo! Kila jibu, mpe kitu KIPYA.
 
-17. SALAMU — JIBU KWA ASILI:
-- "Habari" → "Poa boss, nikukusaidie nini?" (JIBU salamu kwanza)
-- "Mambo" → "Safi boss, unahitaji nini leo?"
-- "Hi/Hello" → "Hey boss, how can I help?"
-- USITUMIE template moja kwa salamu ZOTE. Jibu kulingana na alichosema.
+17. SALAMU:
+- Salamu yoyote (habari, mambo, hi, hello) → "Karibu boss" NA ACHA HAPO. Usimulize swali. Ngoja mteja aeleze.
 - "Asante" BAADA ya kuona bidhaa SI salamu → "Unaipenda? Nikuandalie order?"
 
 18. VIDEO: "Boss, nimepokea! Unahitaji bidhaa gani hasa?"
