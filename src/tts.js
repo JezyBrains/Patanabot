@@ -1,8 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
-import { writeFileSync, unlinkSync, existsSync, mkdirSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, promises as fs } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import dotenv from 'dotenv';
+
+const execAsync = promisify(exec);
 
 dotenv.config();
 
@@ -79,19 +82,19 @@ export async function textToVoiceNote(text) {
         const oggPath = join(TEMP_DIR, `tts_${timestamp}.ogg`);
 
         const pcmBuffer = Buffer.from(audioData.data, 'base64');
-        writeFileSync(pcmPath, pcmBuffer);
+        await fs.writeFile(pcmPath, pcmBuffer);
 
         // Gemini TTS: 24kHz, 16-bit, mono PCM → OGG/Opus
-        execSync(
+        await execAsync(
             `ffmpeg -f s16le -ar 24000 -ac 1 -i "${pcmPath}" -c:a libopus -b:a 48k -ar 48000 "${oggPath}" -y 2>/dev/null`,
             { timeout: 15000 }
         );
 
-        const oggBuffer = readFileSync(oggPath);
+        const oggBuffer = await fs.readFile(oggPath);
 
         // Cleanup
-        try { unlinkSync(pcmPath); } catch { }
-        try { unlinkSync(oggPath); } catch { }
+        try { await fs.unlink(pcmPath); } catch { }
+        try { await fs.unlink(oggPath); } catch { }
 
         console.log(`🎤 [TTS] ${TTS_VOICE} voice, ${(oggBuffer.length / 1024).toFixed(1)}KB`);
         return oggBuffer;
