@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { writeFileSync, unlinkSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -82,10 +82,17 @@ export async function textToVoiceNote(text) {
         writeFileSync(pcmPath, pcmBuffer);
 
         // Gemini TTS: 24kHz, 16-bit, mono PCM → OGG/Opus
-        execSync(
-            `ffmpeg -f s16le -ar 24000 -ac 1 -i "${pcmPath}" -c:a libopus -b:a 48k -ar 48000 "${oggPath}" -y 2>/dev/null`,
-            { timeout: 15000 }
-        );
+        spawnSync('ffmpeg', [
+            '-f', 's16le',
+            '-ar', '24000',
+            '-ac', '1',
+            '-i', pcmPath,
+            '-c:a', 'libopus',
+            '-b:a', '48k',
+            '-ar', '48000',
+            oggPath,
+            '-y'
+        ], { timeout: 15000, stdio: 'ignore' });
 
         const oggBuffer = readFileSync(oggPath);
 
